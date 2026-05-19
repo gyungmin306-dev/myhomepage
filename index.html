@@ -3,316 +3,141 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>COSMOS MUSEUM — 은하 탐험</title>
-  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300;1,400&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+  <title>COSMOS VR — 우주 탐험</title>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@300;400;700;800&display=swap" rel="stylesheet">
   <style>
-    *, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
+    * { margin:0; padding:0; box-sizing:border-box; }
     :root {
-      --gold: #c9a84c;
-      --gold-l: #e8c97a;
-      --cream: #f5f0e8;
-      --bg: #04030a;
-      --panel: rgba(255,255,255,0.04);
-      --border: rgba(201,168,76,0.2);
-      --muted: rgba(245,240,232,0.5);
-      --dim: rgba(245,240,232,0.25);
+      --gold:#c9a84c; --gold-l:#e8c97a;
+      --cream:#f5f0e8; --muted:rgba(245,240,232,0.55);
+      --dim:rgba(245,240,232,0.25);
     }
-    html { scroll-behavior: smooth; }
-    body {
-      background: var(--bg);
-      color: var(--cream);
-      font-family: 'Cormorant Garamond', serif;
-      overflow-x: hidden;
-      cursor: none;
+    html, body { width:100%; height:100%; overflow:hidden; background:#000; }
+    body { font-family:'Syne',sans-serif; color:var(--cream); cursor:none; }
+
+    /* ── CANVAS ── */
+    #vr-canvas { position:fixed; inset:0; z-index:0; }
+
+    /* ── 커서 ── */
+    #cursor { position:fixed; z-index:999; pointer-events:none; width:10px; height:10px; border-radius:50%; background:var(--gold); transform:translate(-50%,-50%); mix-blend-mode:difference; transition:width .2s,height .2s; }
+    #cursor-ring { position:fixed; z-index:998; pointer-events:none; width:40px; height:40px; border-radius:50%; border:1px solid rgba(201,168,76,0.5); transform:translate(-50%,-50%); transition:width .3s,height .3s,opacity .3s; }
+
+    /* ── HUD 상단 ── */
+    .hud-top {
+      position:fixed; top:0; left:0; right:0; z-index:10;
+      display:flex; justify-content:space-between; align-items:center;
+      padding:1.5rem 2.5rem;
+      background:linear-gradient(to bottom,rgba(0,0,0,0.7),transparent);
+      pointer-events:none;
+    }
+    .hud-logo { font-family:'Space Mono',monospace; font-size:.75rem; letter-spacing:4px; color:var(--gold); pointer-events:all; }
+    .hud-nav { display:flex; gap:1.5rem; pointer-events:all; }
+    .hud-btn {
+      font-family:'Space Mono',monospace; font-size:.62rem; letter-spacing:2px;
+      color:var(--muted); background:rgba(0,0,0,0.4); border:1px solid rgba(201,168,76,0.2);
+      padding:.45rem 1rem; cursor:pointer; transition:all .3s; text-transform:uppercase;
+    }
+    .hud-btn:hover, .hud-btn.active { color:var(--gold); border-color:rgba(201,168,76,0.5); background:rgba(201,168,76,0.08); }
+    @media(max-width:600px){ .hud-top{ padding:1rem 1.2rem; } .hud-nav{ gap:.6rem; } .hud-btn{ font-size:.55rem; padding:.35rem .7rem; } }
+
+    /* ── HUD 하단 ── */
+    .hud-bottom {
+      position:fixed; bottom:0; left:0; right:0; z-index:10;
+      display:flex; justify-content:space-between; align-items:flex-end;
+      padding:2rem 2.5rem;
+      background:linear-gradient(to top,rgba(0,0,0,0.7),transparent);
+      pointer-events:none;
+    }
+    .location-info { pointer-events:none; }
+    .loc-label { font-family:'Space Mono',monospace; font-size:.6rem; letter-spacing:3px; color:var(--gold); margin-bottom:.4rem; text-transform:uppercase; }
+    .loc-name  { font-size:clamp(1.4rem,4vw,2.8rem); font-weight:300; line-height:1.1; font-style:italic; }
+    .loc-name em { font-style:normal; color:var(--gold-l); }
+    .loc-desc  { font-family:'Space Mono',monospace; font-size:.65rem; color:var(--muted); margin-top:.5rem; max-width:400px; line-height:1.7; }
+
+    .hud-right { display:flex; flex-direction:column; align-items:flex-end; gap:1rem; pointer-events:all; }
+    .compass {
+      width:56px; height:56px; border-radius:50%;
+      border:1px solid rgba(201,168,76,0.3);
+      display:flex; align-items:center; justify-content:center;
+      font-family:'Space Mono',monospace; font-size:.55rem;
+      color:var(--gold); position:relative; background:rgba(0,0,0,0.4);
+    }
+    .compass-n { position:absolute; top:6px; font-size:.5rem; color:var(--gold-l); }
+    .compass-needle {
+      width:2px; height:18px; background:linear-gradient(var(--gold),transparent);
+      position:absolute; transform-origin:bottom center;
+      bottom:50%; left:50%; margin-left:-1px;
     }
 
-    /* ── 커스텀 커서 ── */
-    #cursor {
-      position: fixed; z-index: 9999; pointer-events: none;
-      width: 8px; height: 8px; border-radius: 50%;
-      background: var(--gold); mix-blend-mode: difference;
-      transform: translate(-50%,-50%);
-      transition: transform 0.1s, width 0.2s, height 0.2s;
-    }
-    #cursor-ring {
-      position: fixed; z-index: 9998; pointer-events: none;
-      width: 36px; height: 36px; border-radius: 50%;
-      border: 1px solid rgba(201,168,76,0.5);
-      transform: translate(-50%,-50%);
-      transition: transform 0.15s ease-out, width 0.3s, height 0.3s, opacity 0.3s;
-    }
+    .ctrl-hint { font-family:'Space Mono',monospace; font-size:.58rem; color:var(--dim); text-align:right; line-height:1.8; letter-spacing:1px; }
 
-    /* ── NAV ── */
-    nav {
-      position: fixed; top: 0; width: 100%; z-index: 100;
-      display: flex; justify-content: space-between; align-items: center;
-      padding: 1.5rem 3rem;
-      background: linear-gradient(to bottom, rgba(4,3,10,0.9), transparent);
+    /* ── 목적지 패널 ── */
+    .dest-panel {
+      position:fixed; right:0; top:50%; transform:translateY(-50%);
+      z-index:10; display:flex; flex-direction:column; gap:.5rem;
+      padding:0 1.5rem; pointer-events:all;
     }
-    .logo {
-      font-family: 'Space Mono', monospace;
-      font-size: 0.75rem; letter-spacing: 4px;
-      color: var(--gold); text-transform: uppercase;
+    .dest-btn {
+      display:flex; align-items:center; gap:.8rem;
+      background:rgba(0,0,0,0.5); border:1px solid rgba(201,168,76,0.15);
+      padding:.6rem 1rem; cursor:pointer; transition:all .3s;
+      text-align:left;
     }
-    .nav-links { display: flex; gap: 2.5rem; list-style: none; }
-    .nav-links a {
-      font-family: 'Space Mono', monospace;
-      color: var(--muted); text-decoration: none;
-      font-size: 0.65rem; letter-spacing: 3px; text-transform: uppercase;
-      transition: color 0.3s;
-    }
-    .nav-links a:hover { color: var(--gold-l); }
-    .hamburger { display: none; flex-direction: column; gap: 5px; cursor: pointer; }
-    .hamburger span { display: block; width: 22px; height: 1px; background: var(--gold); }
-    @media(max-width:680px){
-      .nav-links { display:none; flex-direction:column; position:absolute; top:70px; left:0; right:0; background:rgba(4,3,10,0.97); padding:2rem 3rem; gap:1.5rem; }
-      .nav-links.open { display:flex; }
-      .hamburger { display:flex; }
-      nav { padding: 1.2rem 1.5rem; }
-    }
+    .dest-btn:hover, .dest-btn.active { border-color:rgba(201,168,76,0.5); background:rgba(201,168,76,0.08); }
+    .dest-dot { width:6px; height:6px; border-radius:50%; background:var(--gold); flex-shrink:0; }
+    .dest-btn.active .dest-dot { box-shadow:0 0 8px var(--gold); }
+    .dest-name { font-family:'Space Mono',monospace; font-size:.6rem; letter-spacing:1.5px; color:var(--muted); text-transform:uppercase; }
+    .dest-btn.active .dest-name, .dest-btn:hover .dest-name { color:var(--gold-l); }
+    @media(max-width:600px){ .dest-panel{ display:none; } }
 
-    /* ── HERO ── */
-    .hero {
-      position: relative; min-height: 100vh;
-      display: flex; flex-direction: column;
-      align-items: center; justify-content: center;
-      text-align: center; overflow: hidden;
+    /* ── INTRO 오버레이 ── */
+    #intro {
+      position:fixed; inset:0; z-index:100;
+      display:flex; flex-direction:column; align-items:center; justify-content:center;
+      background:rgba(0,0,0,0.92); text-align:center; padding:2rem;
+      transition:opacity 1s;
     }
-    .hero-bg {
-      position: absolute; inset: 0; z-index: 0;
-      background-image: url('https://upload.wikimedia.org/wikipedia/commons/thumb/2/2f/Hubble_ultra_deep_field.jpg/1920px-Hubble_ultra_deep_field.jpg');
-      background-size: cover; background-position: center;
-      filter: brightness(0.4) saturate(1.3);
-      transform: scale(1.05);
-      animation: slowZoom 30s ease-in-out infinite alternate;
+    .intro-label { font-family:'Space Mono',monospace; font-size:.65rem; letter-spacing:5px; color:var(--gold); margin-bottom:2rem; text-transform:uppercase; }
+    .intro-title { font-size:clamp(2.5rem,7vw,5.5rem); font-weight:300; font-style:italic; line-height:1.1; margin-bottom:1.5rem; }
+    .intro-title em { font-style:normal; color:var(--gold-l); }
+    .intro-sub { font-family:'Space Mono',monospace; font-size:.78rem; color:var(--muted); max-width:420px; line-height:1.9; margin-bottom:3rem; letter-spacing:.5px; }
+    .intro-start {
+      border:1px solid var(--gold); color:var(--gold);
+      font-family:'Space Mono',monospace; font-size:.72rem; letter-spacing:3px;
+      padding:1rem 3rem; background:transparent; cursor:pointer; text-transform:uppercase;
+      transition:all .4s; animation:pulse 2s ease-in-out infinite;
     }
-    @keyframes slowZoom { 0%{transform:scale(1.05)} 100%{transform:scale(1.12)} }
-    .hero-vignette {
-      position: absolute; inset: 0; z-index: 1;
-      background: radial-gradient(ellipse at center, transparent 30%, rgba(4,3,10,0.8) 100%);
-    }
-    .hero-content { position: relative; z-index: 2; padding: 2rem; }
-    .hero-label {
-      font-family: 'Space Mono', monospace;
-      font-size: 0.65rem; letter-spacing: 5px; color: var(--gold);
-      text-transform: uppercase; margin-bottom: 2rem;
-      opacity: 0; animation: fadeUp 1.2s 0.3s forwards;
-    }
-    .hero h1 {
-      font-size: clamp(3rem, 8vw, 7rem);
-      font-weight: 300; line-height: 1.05;
-      letter-spacing: -1px; margin-bottom: 1.5rem;
-      font-style: italic;
-      opacity: 0; animation: fadeUp 1.2s 0.6s forwards;
-    }
-    .hero h1 em { font-style: normal; color: var(--gold-l); }
-    .hero-sub {
-      font-size: 1.1rem; color: var(--muted); font-weight: 300;
-      max-width: 500px; line-height: 1.9; margin-bottom: 3rem;
-      opacity: 0; animation: fadeUp 1.2s 0.9s forwards;
-    }
-    .hero-cta {
-      display: inline-flex; align-items: center; gap: 1rem;
-      border: 1px solid var(--border); padding: 1rem 2.5rem;
-      color: var(--gold-l); font-family: 'Space Mono', monospace;
-      font-size: 0.7rem; letter-spacing: 3px; text-transform: uppercase;
-      cursor: pointer; background: transparent;
-      transition: background 0.4s, border-color 0.4s;
-      opacity: 0; animation: fadeUp 1.2s 1.2s forwards;
-    }
-    .hero-cta:hover { background: rgba(201,168,76,0.08); border-color: var(--gold); }
-    .hero-cta .arrow { font-size: 1rem; transition: transform 0.3s; }
-    .hero-cta:hover .arrow { transform: translateX(6px); }
-    @keyframes fadeUp { from{opacity:0;transform:translateY(24px)} to{opacity:1;transform:translateY(0)} }
+    .intro-start:hover { background:rgba(201,168,76,0.12); letter-spacing:5px; }
+    @keyframes pulse { 0%,100%{box-shadow:0 0 0 0 rgba(201,168,76,0.3)} 50%{box-shadow:0 0 0 12px rgba(201,168,76,0)} }
 
-    .scroll-hint {
-      position: absolute; bottom: 2.5rem; left: 50%; transform: translateX(-50%);
-      z-index: 2; display: flex; flex-direction: column; align-items: center; gap: 0.8rem;
-      color: var(--dim); font-family: 'Space Mono', monospace;
-      font-size: 0.6rem; letter-spacing: 3px; text-transform: uppercase;
-      animation: bob 3s ease-in-out infinite;
+    /* ── ABOUT 패널 ── */
+    #about-panel {
+      position:fixed; inset:0; z-index:50;
+      display:none; align-items:center; justify-content:center;
+      background:rgba(0,0,0,0.85); padding:2rem;
     }
-    .scroll-line { width: 1px; height: 40px; background: linear-gradient(to bottom, var(--gold), transparent); }
-    @keyframes bob { 0%,100%{transform:translateX(-50%) translateY(0)} 50%{transform:translateX(-50%) translateY(-8px)} }
-
-    /* ── SECTIONS ── */
-    section { position: relative; }
-    .inner { max-width: 1100px; margin: 0 auto; padding: 7rem 2.5rem; }
-
-    /* 섹션 구분선 */
-    .divider {
-      width: 100%; height: 1px;
-      background: linear-gradient(to right, transparent, var(--border), transparent);
+    #about-panel.open { display:flex; }
+    .about-box {
+      max-width:580px; width:100%;
+      border:1px solid rgba(201,168,76,0.25);
+      background:rgba(4,3,10,0.9); padding:3rem;
+      position:relative;
     }
-
-    /* ── EXHIBIT — 은하 전시실 ── */
-    .exhibit-section { background: var(--bg); }
-    .exhibit-header { text-align: center; margin-bottom: 5rem; }
-    .exhibit-num {
-      font-family: 'Space Mono', monospace; font-size: 0.65rem;
-      letter-spacing: 4px; color: var(--gold); margin-bottom: 1rem;
+    .about-close {
+      position:absolute; top:1.2rem; right:1.2rem;
+      font-family:'Space Mono',monospace; font-size:.7rem; color:var(--muted);
+      cursor:pointer; background:none; border:none; letter-spacing:2px;
     }
-    .exhibit-title {
-      font-size: clamp(2rem, 4vw, 3.2rem);
-      font-weight: 300; font-style: italic; margin-bottom: 1rem;
-    }
-    .exhibit-title em { font-style: normal; color: var(--gold-l); }
-    .exhibit-desc { color: var(--muted); font-size: 1.05rem; line-height: 1.9; max-width: 560px; margin: 0 auto; }
-
-    /* 은하 전시 카드 */
-    .galaxy-exhibits { display: flex; flex-direction: column; gap: 6rem; }
-    .galaxy-exhibit {
-      display: grid; grid-template-columns: 1fr 1fr; gap: 4rem; align-items: center;
-    }
-    .galaxy-exhibit.reverse { direction: rtl; }
-    .galaxy-exhibit.reverse > * { direction: ltr; }
-    @media(max-width:768px){
-      .galaxy-exhibit, .galaxy-exhibit.reverse { grid-template-columns: 1fr; direction: ltr; gap: 2rem; }
-    }
-
-    /* 3D 회전 사진 프레임 */
-    .photo-frame {
-      position: relative; border-radius: 4px; overflow: hidden;
-      border: 1px solid var(--border);
-      box-shadow: 0 0 60px rgba(201,168,76,0.08), 0 30px 80px rgba(0,0,0,0.6);
-      cursor: grab; user-select: none;
-    }
-    .photo-frame:active { cursor: grabbing; }
-    .photo-frame img {
-      display: block; width: 100%; aspect-ratio: 4/3;
-      object-fit: cover; filter: brightness(0.9) saturate(1.2);
-      transition: filter 0.4s;
-      pointer-events: none;
-    }
-    .photo-frame:hover img { filter: brightness(1.0) saturate(1.3); }
-    .frame-label {
-      position: absolute; top: 1rem; left: 1rem;
-      font-family: 'Space Mono', monospace; font-size: 0.6rem;
-      letter-spacing: 2px; color: var(--gold);
-      background: rgba(4,3,10,0.7); padding: 0.3rem 0.7rem;
-      border: 1px solid var(--border); border-radius: 2px;
-    }
-    .frame-hint {
-      position: absolute; bottom: 1rem; right: 1rem;
-      font-family: 'Space Mono', monospace; font-size: 0.58rem;
-      color: var(--dim); letter-spacing: 1px;
-    }
-    /* 3D 틸트 효과 */
-    .photo-frame {
-      transform-style: preserve-3d;
-      transition: box-shadow 0.3s;
-    }
-
-    .exhibit-info {}
-    .exhibit-tag {
-      font-family: 'Space Mono', monospace; font-size: 0.62rem;
-      letter-spacing: 3px; color: var(--gold); text-transform: uppercase;
-      margin-bottom: 1rem;
-    }
-    .exhibit-name {
-      font-size: clamp(1.8rem, 3vw, 2.8rem); font-weight: 300;
-      font-style: italic; line-height: 1.2; margin-bottom: 0.5rem;
-    }
-    .exhibit-name em { font-style: normal; }
-    .exhibit-sub {
-      font-family: 'Space Mono', monospace; font-size: 0.7rem;
-      color: var(--gold); letter-spacing: 1px; margin-bottom: 1.5rem;
-    }
-    .exhibit-text {
-      color: var(--muted); line-height: 2.0; font-size: 1rem;
-      margin-bottom: 2rem; font-weight: 300;
-    }
-    .exhibit-stats { display: flex; flex-direction: column; gap: 0.8rem; }
-    .stat-row {
-      display: flex; justify-content: space-between; align-items: baseline;
-      border-bottom: 1px solid rgba(201,168,76,0.1); padding-bottom: 0.8rem;
-    }
-    .stat-key { font-family: 'Space Mono', monospace; font-size: 0.62rem; letter-spacing: 2px; color: var(--dim); }
-    .stat-val { font-family: 'Space Mono', monospace; font-size: 0.8rem; color: var(--gold-l); }
-
-    /* ── APOD 갤러리 ── */
-    .apod-section { background: rgba(201,168,76,0.02); }
-    .apod-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-      gap: 2px;
-    }
-    .apod-card {
-      position: relative; overflow: hidden; cursor: pointer;
-      aspect-ratio: 1;
-    }
-    .apod-card img {
-      width: 100%; height: 100%; object-fit: cover; display: block;
-      filter: brightness(0.7) saturate(1.1);
-      transition: transform 0.7s cubic-bezier(0.25,0.46,0.45,0.94), filter 0.4s;
-    }
-    .apod-card:hover img { transform: scale(1.08); filter: brightness(0.9) saturate(1.3); }
-    .apod-overlay {
-      position: absolute; inset: 0;
-      background: linear-gradient(to top, rgba(4,3,10,0.95) 0%, transparent 60%);
-      opacity: 0; transition: opacity 0.4s;
-      display: flex; flex-direction: column; justify-content: flex-end;
-      padding: 1.5rem;
-    }
-    .apod-card:hover .apod-overlay { opacity: 1; }
-    .apod-date-tag { font-family: 'Space Mono', monospace; font-size: 0.6rem; color: var(--gold); letter-spacing: 2px; margin-bottom: 0.4rem; }
-    .apod-card-title { font-size: 1.1rem; font-weight: 300; font-style: italic; line-height: 1.3; }
-    .apod-skeleton {
-      width: 100%; aspect-ratio: 1;
-      background: linear-gradient(90deg, rgba(255,255,255,0.03) 25%, rgba(255,255,255,0.06) 50%, rgba(255,255,255,0.03) 75%);
-      background-size: 200% 100%; animation: shimmer 1.8s infinite;
-    }
-    @keyframes shimmer { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
-    .loading-txt { text-align:center; color:var(--muted); font-family:'Space Mono',monospace; font-size:.8rem; letter-spacing:2px; padding:4rem; }
-
-    /* ── ABOUT ── */
-    .about-section { background: var(--bg); }
-    .about-grid { display: grid; grid-template-columns: 1fr 2fr; gap: 5rem; align-items: start; }
-    @media(max-width:640px){ .about-grid{ grid-template-columns:1fr; gap:3rem; } }
-    .about-portrait {
-      aspect-ratio: 3/4; border: 1px solid var(--border);
-      background: linear-gradient(135deg, rgba(201,168,76,0.1), rgba(37,99,235,0.1));
-      display: flex; align-items: center; justify-content: center;
-      font-size: 5rem; position: relative; overflow: hidden;
-    }
-    .about-portrait::after {
-      content: ''; position: absolute; inset: 0;
-      background: linear-gradient(to bottom, transparent 60%, rgba(4,3,10,0.6));
-    }
-    .portrait-label {
-      position: absolute; bottom: 1rem; left: 1rem; right: 1rem;
-      font-family: 'Space Mono', monospace; font-size: 0.6rem;
-      letter-spacing: 2px; color: var(--gold); text-align: center; z-index: 1;
-    }
-    .about-content {}
-    .about-number { font-family: 'Space Mono', monospace; font-size: 0.62rem; letter-spacing: 4px; color: var(--gold); margin-bottom: 1rem; }
-    .about-name { font-size: clamp(2rem, 3.5vw, 3rem); font-weight: 300; font-style: italic; margin-bottom: 0.5rem; }
-    .about-role { font-family: 'Space Mono', monospace; font-size: 0.68rem; letter-spacing: 3px; color: var(--gold); margin-bottom: 2.5rem; }
-    .about-bio { color: var(--muted); line-height: 2.1; font-size: 1rem; font-weight: 300; margin-bottom: 2.5rem; }
-    .about-links { display: flex; flex-direction: column; gap: 0; margin-bottom: 2.5rem; }
-    .about-link {
-      font-family: 'Space Mono', monospace; font-size: 0.68rem;
-      color: var(--muted); text-decoration: none;
-      display: flex; align-items: center; justify-content: space-between;
-      padding: 0.9rem 0; border-bottom: 1px solid rgba(201,168,76,0.1);
-      letter-spacing: 1px; transition: color 0.3s;
-    }
-    .about-link:hover { color: var(--gold-l); }
-    .about-link .link-arrow { transition: transform 0.3s; }
-    .about-link:hover .link-arrow { transform: translateX(4px); }
-    .skills-label { font-family: 'Space Mono', monospace; font-size: 0.6rem; letter-spacing: 3px; color: var(--dim); margin-bottom: 1rem; }
-    .skills { display: flex; flex-wrap: wrap; gap: 0.5rem; }
-    .skill { border: 1px solid var(--border); color: var(--gold); font-family: 'Space Mono', monospace; font-size: 0.62rem; padding: 0.35rem 0.9rem; letter-spacing: 1px; }
-
-    /* ── FOOTER ── */
-    footer {
-      position: relative; z-index: 1; text-align: center; padding: 3rem 2rem;
-      border-top: 1px solid var(--border);
-      color: var(--dim); font-family: 'Space Mono', monospace; font-size: 0.65rem; letter-spacing: 2px;
-    }
-    footer span { color: var(--gold); }
-
-    @media(max-width:480px){ .inner{ padding: 4rem 1.5rem; } }
+    .about-close:hover { color:var(--gold); }
+    .about-num { font-family:'Space Mono',monospace; font-size:.6rem; letter-spacing:4px; color:var(--gold); margin-bottom:1rem; }
+    .about-name-big { font-size:2.8rem; font-weight:300; font-style:italic; margin-bottom:.3rem; }
+    .about-role { font-family:'Space Mono',monospace; font-size:.65rem; letter-spacing:2px; color:var(--gold); margin-bottom:2rem; }
+    .about-bio { color:var(--muted); line-height:2; font-size:.95rem; margin-bottom:2rem; }
+    .about-links-list { display:flex; flex-direction:column; gap:0; margin-bottom:2rem; }
+    .a-lnk { font-family:'Space Mono',monospace; font-size:.65rem; color:var(--muted); text-decoration:none; display:flex; justify-content:space-between; padding:.7rem 0; border-bottom:1px solid rgba(201,168,76,0.1); transition:color .3s; letter-spacing:.5px; }
+    .a-lnk:hover { color:var(--gold-l); }
+    .skills-row { display:flex; flex-wrap:wrap; gap:.4rem; }
+    .sk { border:1px solid rgba(201,168,76,0.25); color:var(--gold); font-family:'Space Mono',monospace; font-size:.58rem; padding:.25rem .75rem; letter-spacing:.5px; }
   </style>
 </head>
 <body>
@@ -320,330 +145,346 @@
 <div id="cursor"></div>
 <div id="cursor-ring"></div>
 
-<nav>
-  <div class="logo">✦ Cosmos Museum</div>
-  <ul class="nav-links" id="navLinks">
-    <li><a href="#exhibit">전시실</a></li>
-    <li><a href="#gallery">갤러리</a></li>
-    <li><a href="#about">큐레이터</a></li>
-  </ul>
-  <div class="hamburger" onclick="document.getElementById('navLinks').classList.toggle('open')">
-    <span></span><span></span><span></span>
-  </div>
-</nav>
+<!-- INTRO -->
+<div id="intro">
+  <div class="intro-label">Cosmos Museum · VR Experience</div>
+  <h1 class="intro-title">우주 속으로<br><em>들어가다</em></h1>
+  <p class="intro-sub">마우스로 시점을 돌리면<br>360° 우주 한가운데 서있는 느낌을 경험합니다.<br>실제 NASA · 허블 관측 데이터 기반</p>
+  <button class="intro-start" onclick="startVR()">탐험 시작 →</button>
+</div>
 
-<!-- HERO -->
-<section class="hero" id="home">
-  <div class="hero-bg"></div>
-  <div class="hero-vignette"></div>
-  <div class="hero-content">
-    <div class="hero-label">Cosmos Museum — 은하 탐험 전시관</div>
-    <h1>우주의 <em>경이로움</em>을<br>직접 탐험하다</h1>
-    <p class="hero-sub">허블 우주망원경과 NASA가 포착한 실제 우주 사진으로<br>광활한 은하계를 박물관처럼 둘러보세요.</p>
-    <button class="hero-cta" onclick="document.getElementById('exhibit').scrollIntoView({behavior:'smooth'})">
-      전시 입장 <span class="arrow">→</span>
-    </button>
-  </div>
-  <div class="scroll-hint">
-    <span>아래로</span>
-    <div class="scroll-line"></div>
-  </div>
-</section>
-
-<div class="divider"></div>
-
-<!-- GALAXY EXHIBIT -->
-<section class="exhibit-section" id="exhibit">
-  <div class="inner">
-    <div class="exhibit-header">
-      <div class="exhibit-num">Exhibit 01 — 은하 전시실</div>
-      <h2 class="exhibit-title">실제 우주 사진으로 만나는 <em>은하계</em></h2>
-      <p class="exhibit-desc">사진 위에 마우스를 올리고 드래그하면 3D로 기울어집니다. 실제 허블 망원경이 촬영한 사진입니다.</p>
+<!-- ABOUT 패널 -->
+<div id="about-panel">
+  <div class="about-box">
+    <button class="about-close" onclick="document.getElementById('about-panel').classList.remove('open')">✕ 닫기</button>
+    <div class="about-num">Curator No. 001</div>
+    <div class="about-name-big">경민</div>
+    <div class="about-role">Web Developer & Space Enthusiast</div>
+    <p class="about-bio">웹 개발과 우주에 깊은 관심을 가진 개발자입니다.<br><br>이 VR 우주 체험관은 Three.js, NASA APOD API, 허블 우주망원경 공개 이미지를 활용해 직접 제작했습니다. DNS 구조와 GitHub Pages 배포, 가비아 도메인 연결까지 처음부터 끝까지 혼자 구현했습니다.</p>
+    <div class="about-links-list">
+      <a class="a-lnk" href="mailto:gyungmin306@gmail.com"><span>📧 gyungmin306@gmail.com</span><span>→</span></a>
+      <a class="a-lnk" href="https://github.com/gyungmin306-dev" target="_blank"><span>🐙 github.com/gyungmin306-dev</span><span>→</span></a>
+      <a class="a-lnk" href="https://gyung.store" target="_blank"><span>🌐 gyung.store</span><span>→</span></a>
     </div>
-
-    <div class="galaxy-exhibits">
-
-      <!-- 우리 은하 -->
-      <div class="galaxy-exhibit" id="frame0">
-        <div class="photo-frame" data-frame="0">
-          <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/0/0c/GalacticCenterMultiWavelength.jpg/1280px-GalacticCenterMultiWavelength.jpg"
-               alt="우리 은하 중심"
-               onerror="this.src='https://upload.wikimedia.org/wikipedia/commons/thumb/c/c3/NGC_4414_%28NASA-med%29.jpg/800px-NGC_4414_%28NASA-med%29.jpg'">
-          <div class="frame-label">NASA · Multiwavelength</div>
-          <div class="frame-hint">드래그하여 회전</div>
-        </div>
-        <div class="exhibit-info">
-          <div class="exhibit-tag">Exhibit 01-A</div>
-          <div class="exhibit-name">우리 <em>은하</em></div>
-          <div class="exhibit-sub">The Milky Way Galaxy</div>
-          <p class="exhibit-text">우리가 속해 있는 은하. 중심부에는 태양 질량의 400만 배에 달하는 초대질량 블랙홀 궁수자리 A*가 자리하고 있습니다. 이 사진은 X선, 광학, 적외선 등 여러 파장을 합성한 NASA의 다중파장 이미지입니다.</p>
-          <div class="exhibit-stats">
-            <div class="stat-row"><span class="stat-key">지름</span><span class="stat-val">100,000 광년</span></div>
-            <div class="stat-row"><span class="stat-key">별의 수</span><span class="stat-val">약 2,000억 개</span></div>
-            <div class="stat-row"><span class="stat-key">블랙홀 질량</span><span class="stat-val">태양의 400만 배</span></div>
-            <div class="stat-row"><span class="stat-key">나선 팔</span><span class="stat-val">4개</span></div>
-          </div>
-        </div>
-      </div>
-
-      <!-- 안드로메다 -->
-      <div class="galaxy-exhibit reverse" id="frame1">
-        <div class="photo-frame" data-frame="1">
-          <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/9/98/Andromeda_Galaxy_%28with_h-alpha%29.jpg/1280px-Andromeda_Galaxy_%28with_h-alpha%29.jpg"
-               alt="안드로메다 은하"
-               onerror="this.src='https://upload.wikimedia.org/wikipedia/commons/thumb/c/c3/NGC_4414_%28NASA-med%29.jpg/800px-NGC_4414_%28NASA-med%29.jpg'">
-          <div class="frame-label">Hubble · M31</div>
-          <div class="frame-hint">드래그하여 회전</div>
-        </div>
-        <div class="exhibit-info">
-          <div class="exhibit-tag">Exhibit 01-B</div>
-          <div class="exhibit-name">안드로메다 <em>은하</em></div>
-          <div class="exhibit-sub">Andromeda Galaxy · M31</div>
-          <p class="exhibit-text">지구에서 가장 가까운 대형 나선 은하. 맑은 날 밤하늘에서 육안으로도 희미하게 관측할 수 있습니다. 약 40억 년 후 우리 은하와 충돌·합병될 것으로 예측됩니다.</p>
-          <div class="exhibit-stats">
-            <div class="stat-row"><span class="stat-key">거리</span><span class="stat-val">2,537,000 광년</span></div>
-            <div class="stat-row"><span class="stat-key">지름</span><span class="stat-val">220,000 광년</span></div>
-            <div class="stat-row"><span class="stat-key">별의 수</span><span class="stat-val">약 1조 개</span></div>
-            <div class="stat-row"><span class="stat-key">충돌 예정</span><span class="stat-val">약 40억 년 후</span></div>
-          </div>
-        </div>
-      </div>
-
-      <!-- NGC 4414 -->
-      <div class="galaxy-exhibit" id="frame2">
-        <div class="photo-frame" data-frame="2">
-          <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/c/c3/NGC_4414_%28NASA-med%29.jpg/1280px-NGC_4414_%28NASA-med%29.jpg"
-               alt="NGC 4414"
-               onerror="this.src='https://upload.wikimedia.org/wikipedia/commons/thumb/5/5e/Crab_Nebula.jpg/800px-Crab_Nebula.jpg'">
-          <div class="frame-label">Hubble · NGC 4414</div>
-          <div class="frame-hint">드래그하여 회전</div>
-        </div>
-        <div class="exhibit-info">
-          <div class="exhibit-tag">Exhibit 01-C</div>
-          <div class="exhibit-name">NGC <em>4414</em></div>
-          <div class="exhibit-sub">Flocculent Spiral Galaxy</div>
-          <p class="exhibit-text">허블 우주망원경이 촬영한 솜뭉치 나선 은하. 선명한 나선 팔 없이 불규칙한 먼지와 별들이 뒤엉켜 있는 독특한 형태를 가집니다. 중심의 황금빛 노성들과 외곽의 푸른 젊은 별들이 대조를 이룹니다.</p>
-          <div class="exhibit-stats">
-            <div class="stat-row"><span class="stat-key">거리</span><span class="stat-val">62,000,000 광년</span></div>
-            <div class="stat-row"><span class="stat-key">분류</span><span class="stat-val">솜뭉치 나선 은하</span></div>
-            <div class="stat-row"><span class="stat-key">촬영</span><span class="stat-val">허블 우주망원경</span></div>
-          </div>
-        </div>
-      </div>
-
-      <!-- 창조의 기둥 -->
-      <div class="galaxy-exhibit reverse" id="frame3">
-        <div class="photo-frame" data-frame="3">
-          <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/6/68/Pillars_of_creation_2014_HST_WFC3-UVIS_full-res_denoised.jpg/800px-Pillars_of_creation_2014_HST_WFC3-UVIS_full-res_denoised.jpg"
-               alt="창조의 기둥"
-               onerror="this.src='https://upload.wikimedia.org/wikipedia/commons/thumb/5/5e/Crab_Nebula.jpg/800px-Crab_Nebula.jpg'">
-          <div class="frame-label">Hubble · Eagle Nebula</div>
-          <div class="frame-hint">드래그하여 회전</div>
-        </div>
-        <div class="exhibit-info">
-          <div class="exhibit-tag">Exhibit 01-D</div>
-          <div class="exhibit-name">창조의 <em>기둥</em></div>
-          <div class="exhibit-sub">Pillars of Creation · M16</div>
-          <p class="exhibit-text">허블이 촬영한 가장 상징적인 우주 사진. 독수리 성운 내부에서 새로운 별들이 탄생하는 지역으로, 차갑고 밀도 높은 수소 가스와 먼지가 기둥 형태로 남아있습니다.</p>
-          <div class="exhibit-stats">
-            <div class="stat-row"><span class="stat-key">거리</span><span class="stat-val">6,500 광년</span></div>
-            <div class="stat-row"><span class="stat-key">기둥 높이</span><span class="stat-val">약 4 광년</span></div>
-            <div class="stat-row"><span class="stat-key">촬영 연도</span><span class="stat-val">2014 (복원)</span></div>
-          </div>
-        </div>
-      </div>
-
+    <div style="font-family:'Space Mono',monospace;font-size:.58rem;letter-spacing:2px;color:var(--dim);margin-bottom:.8rem;">기술 스택</div>
+    <div class="skills-row">
+      <span class="sk">Three.js</span><span class="sk">WebGL</span><span class="sk">NASA API</span>
+      <span class="sk">HTML/CSS</span><span class="sk">JavaScript</span><span class="sk">GitHub Pages</span>
+      <span class="sk">DNS · CNAME</span><span class="sk">가비아</span>
     </div>
   </div>
-</section>
+</div>
 
-<div class="divider"></div>
+<!-- 캔버스 -->
+<canvas id="vr-canvas"></canvas>
 
-<!-- NASA APOD GALLERY -->
-<section class="apod-section" id="gallery">
-  <div class="inner">
-    <div class="exhibit-header">
-      <div class="exhibit-num">Exhibit 02 — NASA APOD</div>
-      <h2 class="exhibit-title">NASA 오늘의 <em>천문 사진</em></h2>
-      <p class="exhibit-desc">NASA가 매일 선정하는 Astronomy Picture of the Day. 실제 관측된 우주의 모습입니다.</p>
+<!-- HUD 상단 -->
+<div class="hud-top">
+  <div class="hud-logo">✦ COSMOS VR</div>
+  <div class="hud-nav">
+    <button class="hud-btn" onclick="document.getElementById('about-panel').classList.add('open')">큐레이터</button>
+    <button class="hud-btn" id="autoBtn" onclick="toggleAuto()">자동회전 ON</button>
+    <button class="hud-btn" id="vrBtn" onclick="toggleVR()">🥽 VR모드</button>
+  </div>
+</div>
+
+<!-- HUD 하단 -->
+<div class="hud-bottom">
+  <div class="location-info">
+    <div class="loc-label" id="locLabel">현재 위치</div>
+    <div class="loc-name" id="locName">허블 <em>딥필드</em></div>
+    <div class="loc-desc" id="locDesc">허블 우주망원경이 촬영한 우주에서 가장 깊은 곳. 수천 개의 은하가 담긴 이 사진 한 장에는 100억 광년 너머의 우주가 담겨 있습니다.</div>
+  </div>
+  <div class="hud-right">
+    <div class="compass" id="compass">
+      <div class="compass-n">N</div>
+      <div class="compass-needle" id="needle"></div>
     </div>
-    <div id="apodGrid" class="apod-grid">
-      <div class="loading-txt" style="grid-column:1/-1">🔭 &nbsp; NASA에서 실제 우주 사진을 불러오는 중...</div>
+    <div class="ctrl-hint" id="ctrlHint">
+      마우스 드래그 · 시점 이동<br>
+      스크롤 · 줌<br>
+      터치 · 드래그
     </div>
   </div>
-</section>
+</div>
 
-<div class="divider"></div>
+<!-- 목적지 패널 -->
+<div class="dest-panel">
+  <button class="dest-btn active" data-idx="0" onclick="goTo(0)"><div class="dest-dot"></div><div class="dest-name">허블 딥필드</div></button>
+  <button class="dest-btn" data-idx="1" onclick="goTo(1)"><div class="dest-dot"></div><div class="dest-name">안드로메다</div></button>
+  <button class="dest-btn" data-idx="2" onclick="goTo(2)"><div class="dest-dot"></div><div class="dest-name">창조의 기둥</div></button>
+  <button class="dest-btn" data-idx="3" onclick="goTo(3)"><div class="dest-dot"></div><div class="dest-name">게 성운</div></button>
+  <button class="dest-btn" data-idx="4" onclick="goTo(4)"><div class="dest-dot"></div><div class="dest-name">나선 은하</div></button>
+</div>
 
-<!-- ABOUT -->
-<section class="about-section" id="about">
-  <div class="inner">
-    <div class="exhibit-header" style="margin-bottom:4rem">
-      <div class="exhibit-num">Curator — 큐레이터 소개</div>
-      <h2 class="exhibit-title">이 전시를 <em>만든 사람</em></h2>
-    </div>
-    <div class="about-grid">
-      <div class="about-portrait">
-        🚀
-        <div class="portrait-label">Gyungmin · Web Developer</div>
-      </div>
-      <div class="about-content">
-        <div class="about-number">Curator No. 001</div>
-        <div class="about-name">경민</div>
-        <div class="about-role">Web Developer & Space Enthusiast</div>
-        <p class="about-bio">
-          웹 개발과 우주에 깊은 관심을 가진 개발자입니다.<br><br>
-          이 전시는 NASA APOD API, 허블 우주망원경 공개 이미지, Canvas 2D 기술을 활용해 직접 제작했습니다. DNS 구조와 GitHub Pages 배포, 가비아 도메인 연결까지 — 처음부터 끝까지 혼자 구현했습니다.<br><br>
-          우주의 광활함 앞에서 겸손해지고, 그 아름다움에서 끝없는 영감을 받습니다.
-        </p>
-        <div class="about-links">
-          <a class="about-link" href="mailto:gyungmin306@gmail.com">
-            <span>📧 gyungmin306@gmail.com</span>
-            <span class="link-arrow">→</span>
-          </a>
-          <a class="about-link" href="https://github.com/gyungmin306-dev" target="_blank" rel="noopener">
-            <span>🐙 github.com/gyungmin306-dev</span>
-            <span class="link-arrow">→</span>
-          </a>
-          <a class="about-link" href="https://gyung.store" target="_blank" rel="noopener">
-            <span>🌐 gyung.store</span>
-            <span class="link-arrow">→</span>
-          </a>
-        </div>
-        <div class="skills-label">기술 스택</div>
-        <div class="skills">
-          <span class="skill">HTML / CSS</span>
-          <span class="skill">JavaScript</span>
-          <span class="skill">NASA API</span>
-          <span class="skill">Canvas 2D</span>
-          <span class="skill">GitHub Pages</span>
-          <span class="skill">DNS · CNAME</span>
-          <span class="skill">가비아 도메인</span>
-          <span class="skill">Responsive Web</span>
-        </div>
-      </div>
-    </div>
-  </div>
-</section>
-
-<footer>
-  <p>✦ <span>Cosmos Museum</span> &nbsp;|&nbsp; gyung.store &nbsp;|&nbsp; Photos: <span>NASA · ESA · Hubble</span> · Public Domain</p>
-</footer>
-
+<!-- Three.js -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script>
-/* ── 커서 ── */
-const cur = document.getElementById('cursor');
-const ring = document.getElementById('cursor-ring');
+/* ══ CURSOR ══ */
+const cur=document.getElementById('cursor'),ring=document.getElementById('cursor-ring');
 let mx=0,my=0,rx=0,ry=0;
-document.addEventListener('mousemove',e=>{
-  mx=e.clientX; my=e.clientY;
-  cur.style.left=mx+'px'; cur.style.top=my+'px';
-});
-(function animRing(){
-  rx+=(mx-rx)*0.12; ry+=(my-ry)*0.12;
-  ring.style.left=rx+'px'; ring.style.top=ry+'px';
-  requestAnimationFrame(animRing);
-})();
-document.querySelectorAll('a,button,.photo-frame,.apod-card').forEach(el=>{
-  el.addEventListener('mouseenter',()=>{ ring.style.width='60px'; ring.style.height='60px'; });
-  el.addEventListener('mouseleave',()=>{ ring.style.width='36px'; ring.style.height='36px'; });
-});
+document.addEventListener('mousemove',e=>{ mx=e.clientX; my=e.clientY; cur.style.left=mx+'px'; cur.style.top=my+'px'; });
+(function a(){ rx+=(mx-rx)*0.1; ry+=(my-ry)*0.1; ring.style.left=rx+'px'; ring.style.top=ry+'px'; requestAnimationFrame(a); })();
 
-/* ── 3D 틸트 (실제 사진 위에) ── */
-document.querySelectorAll('.photo-frame').forEach(frame=>{
-  let tiltX=0, tiltY=0, isDrag=false, lx=0, ly=0;
+/* ══ LOCATIONS ══ */
+const LOCATIONS = [
+  {
+    name:'허블 <em>딥필드</em>',
+    label:'Hubble Ultra Deep Field',
+    desc:'허블 우주망원경이 촬영한 우주에서 가장 깊은 곳. 수천 개의 은하가 담긴 이 사진 한 장에는 100억 광년 너머의 우주가 담겨 있습니다.',
+    url:'https://upload.wikimedia.org/wikipedia/commons/thumb/2/2f/Hubble_ultra_deep_field.jpg/1920px-Hubble_ultra_deep_field.jpg'
+  },
+  {
+    name:'안드로메다 <em>은하</em>',
+    label:'Andromeda Galaxy · M31',
+    desc:'250만 광년 거리에 위치한 가장 가까운 대형 나선 은하. 약 40억 년 후 우리 은하와 충돌할 예정입니다.',
+    url:'https://upload.wikimedia.org/wikipedia/commons/thumb/9/98/Andromeda_Galaxy_%28with_h-alpha%29.jpg/1920px-Andromeda_Galaxy_%28with_h-alpha%29.jpg'
+  },
+  {
+    name:'창조의 <em>기둥</em>',
+    label:'Pillars of Creation · Eagle Nebula',
+    desc:'독수리 성운 내부의 별 탄생 지역. 차갑고 밀도 높은 수소 가스 기둥 속에서 새로운 별들이 태어나고 있습니다.',
+    url:'https://upload.wikimedia.org/wikipedia/commons/thumb/6/68/Pillars_of_creation_2014_HST_WFC3-UVIS_full-res_denoised.jpg/1080px-Pillars_of_creation_2014_HST_WFC3-UVIS_full-res_denoised.jpg'
+  },
+  {
+    name:'게 <em>성운</em>',
+    label:'Crab Nebula · M1',
+    desc:'1054년에 폭발한 초신성의 잔해. 중심에는 초당 30회 회전하는 펄사가 있으며 강력한 X선과 감마선을 방출합니다.',
+    url:'https://upload.wikimedia.org/wikipedia/commons/thumb/5/5e/Crab_Nebula.jpg/1920px-Crab_Nebula.jpg'
+  },
+  {
+    name:'NGC <em>4414</em>',
+    label:'Flocculent Spiral Galaxy',
+    desc:'6,200만 광년 거리의 솜뭉치 나선 은하. 중심의 황금빛 노성들과 외곽의 푸른 젊은 별들이 아름다운 대조를 이룹니다.',
+    url:'https://upload.wikimedia.org/wikipedia/commons/thumb/c/c3/NGC_4414_%28NASA-med%29.jpg/1920px-NGC_4414_%28NASA-med%29.jpg'
+  }
+];
 
-  frame.addEventListener('mouseenter',()=>{
-    frame.style.transition='transform 0.1s, box-shadow 0.3s';
-  });
-  frame.addEventListener('mousemove',e=>{
-    if(isDrag) return;
-    const r=frame.getBoundingClientRect();
-    const cx=r.left+r.width/2, cy=r.top+r.height/2;
-    tiltY=((e.clientX-cx)/r.width)*18;
-    tiltX=-((e.clientY-cy)/r.height)*12;
-    frame.style.transform=`perspective(800px) rotateX(${tiltX}deg) rotateY(${tiltY}deg) scale(1.02)`;
-    frame.style.boxShadow=`${-tiltY*2}px ${tiltX*2}px 60px rgba(201,168,76,0.15), 0 30px 80px rgba(0,0,0,0.7)`;
-  });
-  frame.addEventListener('mouseleave',()=>{
-    frame.style.transition='transform 0.6s cubic-bezier(0.25,0.46,0.45,0.94), box-shadow 0.6s';
-    frame.style.transform='perspective(800px) rotateX(0deg) rotateY(0deg) scale(1)';
-    frame.style.boxShadow='';
-  });
+/* ══ THREE.JS VR SETUP ══ */
+const canvas = document.getElementById('vr-canvas');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias:true });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.setSize(window.innerWidth, window.innerHeight);
 
-  /* 터치 드래그 회전 */
-  frame.addEventListener('touchstart',e=>{isDrag=true;lx=e.touches[0].clientX;ly=e.touches[0].clientY;},{passive:true});
-  frame.addEventListener('touchend',()=>{
-    isDrag=false;
-    frame.style.transition='transform 0.6s cubic-bezier(0.25,0.46,0.45,0.94)';
-    frame.style.transform='perspective(800px) rotateX(0deg) rotateY(0deg)';
-  });
-  frame.addEventListener('touchmove',e=>{
-    if(!isDrag)return;
-    tiltY+=(e.touches[0].clientX-lx)*0.3;
-    tiltX-=(e.touches[0].clientY-ly)*0.2;
-    tiltX=Math.max(-25,Math.min(25,tiltX));
-    tiltY=Math.max(-35,Math.min(35,tiltY));
-    frame.style.transform=`perspective(800px) rotateX(${tiltX}deg) rotateY(${tiltY}deg)`;
-    lx=e.touches[0].clientX; ly=e.touches[0].clientY;
-    e.preventDefault();
-  },{passive:false});
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
+camera.position.set(0, 0, 0.01);
+
+window.addEventListener('resize', ()=>{
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  camera.aspect = window.innerWidth/window.innerHeight;
+  camera.updateProjectionMatrix();
 });
 
-/* ── NASA APOD ── */
-(function(){
-  const grid=document.getElementById('apodGrid');
-  const DATES=['2024-04-20','2024-03-15','2024-02-10','2024-01-22','2023-12-01','2023-10-18','2023-09-05','2023-07-20','2023-06-10'];
-  const KEY='DEMO_KEY';
+/* 구체 (360° 스카이박스) */
+const sphereGeo = new THREE.SphereGeometry(500, 64, 32);
+sphereGeo.scale(-1, 1, 1); // 안쪽에서 보기
+const loader = new THREE.TextureLoader();
+loader.crossOrigin = 'anonymous';
 
-  async function fetchOne(date){
-    const r=await fetch(`https://api.nasa.gov/planetary/apod?api_key=${KEY}&date=${date}`);
-    if(!r.ok) throw new Error();
-    return r.json();
+const sphereMat = new THREE.MeshBasicMaterial();
+const sphere = new THREE.Mesh(sphereGeo, sphereMat);
+scene.add(sphere);
+
+/* 별 파티클 */
+function makeStars() {
+  const geo = new THREE.BufferGeometry();
+  const N = 4000;
+  const pos = new Float32Array(N*3);
+  const col = new Float32Array(N*3);
+  for(let i=0;i<N;i++){
+    const theta = Math.random()*Math.PI*2;
+    const phi   = Math.acos(2*Math.random()-1);
+    const r     = 450 + Math.random()*40;
+    pos[i*3]   = r*Math.sin(phi)*Math.cos(theta);
+    pos[i*3+1] = r*Math.sin(phi)*Math.sin(theta);
+    pos[i*3+2] = r*Math.cos(phi);
+    const bright = 0.6+Math.random()*0.4;
+    col[i*3]=bright; col[i*3+1]=bright*0.95; col[i*3+2]=bright*0.9+Math.random()*0.1;
   }
+  geo.setAttribute('position', new THREE.BufferAttribute(pos,3));
+  geo.setAttribute('color',    new THREE.BufferAttribute(col,3));
+  const mat = new THREE.PointsMaterial({ size:1.2, vertexColors:true, transparent:true, opacity:0.85, sizeAttenuation:false });
+  return new THREE.Points(geo, mat);
+}
+scene.add(makeStars());
 
-  function skeleton(){
-    const d=document.createElement('div');
-    d.className='apod-skeleton'; return d;
-  }
+/* 텍스처 로드 */
+let curIdx = 0;
+let isTransitioning = false;
 
-  function card(data){
-    const src=data.hdurl||data.url;
-    const el=document.createElement('div');
-    el.className='apod-card';
-    el.innerHTML=`
-      <img src="${src}" alt="${data.title}" loading="lazy"
-        onerror="this.style.display='none';this.parentElement.style.background='linear-gradient(135deg,#1a0a2e,#0c1445)'">
-      <div class="apod-overlay">
-        <div class="apod-date-tag">${data.date} · NASA APOD</div>
-        <div class="apod-card-title">${data.title}</div>
-      </div>`;
-    return el;
-  }
+function loadTexture(idx, cb) {
+  loader.load(
+    LOCATIONS[idx].url,
+    tex => { sphereMat.map = tex; sphereMat.needsUpdate = true; if(cb) cb(); },
+    undefined,
+    () => {
+      // 로드 실패시 단색 처리
+      sphereMat.color = new THREE.Color(0x020208);
+      sphereMat.needsUpdate = true;
+      if(cb) cb();
+    }
+  );
+}
 
-  async function load(){
-    grid.innerHTML='';
-    const skels=DATES.map(()=>{ const s=skeleton(); grid.appendChild(s); return s; });
-    const results=await Promise.allSettled(DATES.map(d=>fetchOne(d)));
-    results.forEach((r,i)=>{
-      if(r.status==='fulfilled'&&r.value.media_type==='image'){
-        skels[i].replaceWith(card(r.value));
-      } else {
-        // 이미지 로드 실패시 대체
-        const fallbacks=[
-          'https://upload.wikimedia.org/wikipedia/commons/thumb/5/5e/Crab_Nebula.jpg/600px-Crab_Nebula.jpg',
-          'https://upload.wikimedia.org/wikipedia/commons/thumb/c/c3/NGC_4414_%28NASA-med%29.jpg/600px-NGC_4414_%28NASA-med%29.jpg',
-          'https://upload.wikimedia.org/wikipedia/commons/thumb/6/68/Pillars_of_creation_2014_HST_WFC3-UVIS_full-res_denoised.jpg/600px-Pillars_of_creation_2014_HST_WFC3-UVIS_full-res_denoised.jpg',
-        ];
-        const el=document.createElement('div');
-        el.className='apod-card';
-        el.innerHTML=`<img src="${fallbacks[i%fallbacks.length]}" alt="NASA" loading="lazy"><div class="apod-overlay"><div class="apod-date-tag">NASA · Hubble</div><div class="apod-card-title">우주의 신비</div></div>`;
-        skels[i].replaceWith(el);
-      }
+function updateHUD(idx) {
+  const loc = LOCATIONS[idx];
+  document.getElementById('locLabel').textContent = loc.label;
+  document.getElementById('locName').innerHTML   = loc.name;
+  document.getElementById('locDesc').textContent  = loc.desc;
+  document.querySelectorAll('.dest-btn').forEach((b,i)=>{
+    b.classList.toggle('active', i===idx);
+  });
+}
+
+function goTo(idx) {
+  if(isTransitioning || idx===curIdx) return;
+  isTransitioning = true;
+  // 페이드 아웃
+  fadeSphere(0, ()=>{
+    curIdx = idx;
+    loadTexture(idx, ()=>{
+      updateHUD(idx);
+      fadeSphere(1, ()=>{ isTransitioning=false; });
     });
+  });
+}
+
+let sphereOpacity = 1;
+let targetOpacity = 1;
+function fadeSphere(to, cb) {
+  targetOpacity = to;
+  const step = () => {
+    sphereOpacity += (targetOpacity - sphereOpacity) * 0.12;
+    sphereMat.opacity = sphereOpacity;
+    sphereMat.transparent = true;
+    if(Math.abs(sphereOpacity - targetOpacity) > 0.01) {
+      requestAnimationFrame(step);
+    } else {
+      sphereMat.opacity = targetOpacity;
+      if(cb) cb();
+    }
+  };
+  step();
+}
+
+/* ══ 카메라 컨트롤 (드래그 회전) ══ */
+let isDrag=false, prevX=0, prevY=0;
+let yaw=0, pitch=0;
+let autoRotate=true;
+let targetYaw=0, targetPitch=0;
+
+function onDown(x,y){ isDrag=true; prevX=x; prevY=y; autoRotate=false; document.getElementById('autoBtn').textContent='자동회전 OFF'; }
+function onMove(x,y){
+  if(!isDrag)return;
+  const dx=x-prevX, dy=y-prevY;
+  targetYaw   -= dx*0.003;
+  targetPitch -= dy*0.002;
+  targetPitch  = Math.max(-Math.PI/2.2, Math.min(Math.PI/2.2, targetPitch));
+  prevX=x; prevY=y;
+}
+function onUp(){ isDrag=false; }
+
+canvas.addEventListener('mousedown',e=>onDown(e.clientX,e.clientY));
+window.addEventListener('mouseup',onUp);
+window.addEventListener('mousemove',e=>{ if(isDrag) onMove(e.clientX,e.clientY); });
+canvas.addEventListener('touchstart',e=>{ onDown(e.touches[0].clientX,e.touches[0].clientY); e.preventDefault(); },{passive:false});
+canvas.addEventListener('touchend',onUp);
+canvas.addEventListener('touchmove',e=>{ onMove(e.touches[0].clientX,e.touches[0].clientY); e.preventDefault(); },{passive:false});
+
+/* 줌 */
+let fov=75;
+canvas.addEventListener('wheel',e=>{
+  fov = Math.max(30, Math.min(100, fov+e.deltaY*0.05));
+  camera.fov=fov; camera.updateProjectionMatrix();
+},{passive:true});
+
+/* ══ AUTO ROTATE ══ */
+function toggleAuto(){
+  autoRotate=!autoRotate;
+  document.getElementById('autoBtn').textContent=autoRotate?'자동회전 ON':'자동회전 OFF';
+}
+
+/* ══ VR 모드 (DeviceOrientation) ══ */
+let vrMode=false;
+function toggleVR(){
+  if(!vrMode){
+    if(typeof DeviceOrientationEvent!=='undefined'&&typeof DeviceOrientationEvent.requestPermission==='function'){
+      DeviceOrientationEvent.requestPermission().then(s=>{ if(s==='granted') enableVR(); });
+    } else { enableVR(); }
+  } else { disableVR(); }
+}
+function enableVR(){
+  vrMode=true; autoRotate=false;
+  document.getElementById('vrBtn').classList.add('active');
+  document.getElementById('ctrlHint').innerHTML='기기를 기울여서<br>우주를 둘러보세요 🥽';
+  window.addEventListener('deviceorientation',onOrientation);
+}
+function disableVR(){
+  vrMode=false;
+  document.getElementById('vrBtn').classList.remove('active');
+  document.getElementById('ctrlHint').innerHTML='마우스 드래그 · 시점 이동<br>스크롤 · 줌<br>터치 · 드래그';
+  window.removeEventListener('deviceorientation',onOrientation);
+}
+function onOrientation(e){
+  if(e.beta===null)return;
+  targetPitch = THREE.MathUtils.degToRad(-(e.beta-90)*0.8);
+  targetYaw   = THREE.MathUtils.degToRad(-e.gamma*1.2);
+  targetPitch = Math.max(-Math.PI/2.2, Math.min(Math.PI/2.2, targetPitch));
+}
+
+/* ══ RENDER LOOP ══ */
+const euler = new THREE.Euler(0,0,0,'YXZ');
+const clock  = new THREE.Clock();
+
+function animate(){
+  requestAnimationFrame(animate);
+  const dt = clock.getDelta();
+
+  if(autoRotate) targetYaw += 0.04*dt;
+
+  // 부드러운 보간
+  yaw   += (targetYaw-yaw)*0.06;
+  pitch += (targetPitch-pitch)*0.06;
+
+  euler.set(pitch, yaw, 0);
+  camera.quaternion.setFromEuler(euler);
+
+  // 나침반
+  document.getElementById('needle').style.transform=`rotate(${yaw*180/Math.PI}deg)`;
+
+  renderer.render(scene, camera);
+}
+
+/* ══ 자동 전환 (30초마다) ══ */
+let autoSwitchTimer=0;
+function autoSwitch(dt){
+  autoSwitchTimer+=dt;
+  if(autoSwitchTimer>30){
+    autoSwitchTimer=0;
+    if(autoRotate) goTo((curIdx+1)%LOCATIONS.length);
   }
-  load();
-})();
+}
+
+/* 키보드 단축키 */
+window.addEventListener('keydown',e=>{
+  if(e.key==='ArrowRight') goTo((curIdx+1)%LOCATIONS.length);
+  if(e.key==='ArrowLeft')  goTo((curIdx-1+LOCATIONS.length)%LOCATIONS.length);
+  if(e.key===' ') { e.preventDefault(); toggleAuto(); }
+});
+
+/* ══ START ══ */
+function startVR(){
+  document.getElementById('intro').style.opacity='0';
+  setTimeout(()=>{ document.getElementById('intro').style.display='none'; },1000);
+  loadTexture(0, ()=>{ updateHUD(0); animate(); });
+}
+
+/* 힌트 자동 숨김 */
+setTimeout(()=>{
+  const h=document.getElementById('ctrlHint');
+  if(h) h.style.opacity='0.4';
+},5000);
 </script>
 </body>
 </html>
