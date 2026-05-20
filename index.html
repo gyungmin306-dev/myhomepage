@@ -3,488 +3,855 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>COSMOS VR — 우주 탐험</title>
-  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@300;400;700;800&display=swap" rel="stylesheet">
+  <title>경민 — Portfolio</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Syne:wght@400;700;800&family=Space+Mono&display=swap" rel="stylesheet">
   <style>
-    * { margin:0; padding:0; box-sizing:border-box; }
+    *, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
     :root {
-      --gold:#c9a84c; --gold-l:#e8c97a;
-      --cream:#f5f0e8; --muted:rgba(245,240,232,0.55);
-      --dim:rgba(245,240,232,0.25);
+      --bg:#edf7f2; --card:#f8fffe; --border:#c8e6d4;
+      --text:#0d2b1e; --muted:#4d7a62;
+      --accent:#0ea968; --accent-l:#d1f5e4; --accent-d:#0b8a54;
     }
-    html, body { width:100%; height:100%; overflow:hidden; background:#000; }
-    body { font-family:'Syne',sans-serif; color:var(--cream); cursor:none; }
+    html { scroll-behavior:smooth; }
+    body { font-family:'Inter',sans-serif; background:var(--bg); color:var(--text); line-height:1.6; overflow-x:hidden; -webkit-font-smoothing:antialiased; -moz-osx-font-smoothing:grayscale; }
 
-    /* ── CANVAS ── */
-    #vr-canvas { position:fixed; inset:0; z-index:0; }
+    /* PARTICLE CANVAS */
+    #particle-canvas { position:fixed; inset:0; z-index:0; pointer-events:none; }
 
-    /* ── 커서 ── */
-    #cursor { position:fixed; z-index:999; pointer-events:none; width:10px; height:10px; border-radius:50%; background:var(--gold); transform:translate(-50%,-50%); mix-blend-mode:difference; transition:width .2s,height .2s; }
-    #cursor-ring { position:fixed; z-index:998; pointer-events:none; width:40px; height:40px; border-radius:50%; border:1px solid rgba(201,168,76,0.5); transform:translate(-50%,-50%); transition:width .3s,height .3s,opacity .3s; }
+    /* BLOBS */
+    .blob-wrap { position:fixed; inset:0; z-index:0; pointer-events:none; overflow:hidden; }
+    .blob { position:absolute; border-radius:50%; filter:blur(100px); animation:drift 16s ease-in-out infinite; }
+    .blob-1 { width:600px; height:600px; background:radial-gradient(circle, rgba(14,169,104,.2), transparent 70%); top:-15%; right:-10%; }
+    .blob-2 { width:420px; height:420px; background:radial-gradient(circle, rgba(6,214,160,.14), transparent 70%); bottom:5%; left:-8%; animation-delay:-6s; }
+    @keyframes drift {
+      0%,100% { transform:translate(0,0) scale(1); }
+      50%      { transform:translate(25px,-18px) scale(1.04); }
+    }
 
-    /* ── HUD 상단 ── */
-    .hud-top {
-      position:fixed; top:0; left:0; right:0; z-index:10;
+    /* NAV */
+    nav {
+      position:fixed; top:0; left:0; right:0; z-index:100;
       display:flex; justify-content:space-between; align-items:center;
-      padding:1.5rem 2.5rem;
-      background:linear-gradient(to bottom,rgba(0,0,0,0.7),transparent);
-      pointer-events:none;
+      padding:1.1rem 3rem;
+      background:rgba(237,247,242,.88); backdrop-filter:blur(18px);
+      border-bottom:1px solid var(--border);
     }
-    .hud-logo { font-family:'Space Mono',monospace; font-size:.75rem; letter-spacing:4px; color:var(--gold); pointer-events:all; }
-    .hud-nav { display:flex; gap:1.5rem; pointer-events:all; }
-    .hud-btn {
-      font-family:'Space Mono',monospace; font-size:.62rem; letter-spacing:2px;
-      color:var(--muted); background:rgba(0,0,0,0.4); border:1px solid rgba(201,168,76,0.2);
-      padding:.45rem 1rem; cursor:pointer; transition:all .3s; text-transform:uppercase;
+    .nav-logo {
+      font-family:'Syne',sans-serif; font-weight:800; font-size:1.1rem;
+      background:linear-gradient(120deg, var(--text) 30%, var(--accent));
+      -webkit-background-clip:text; -webkit-text-fill-color:transparent; text-decoration:none;
     }
-    .hud-btn:hover, .hud-btn.active { color:var(--gold); border-color:rgba(201,168,76,0.5); background:rgba(201,168,76,0.08); }
-    @media(max-width:600px){ .hud-top{ padding:1rem 1.2rem; } .hud-nav{ gap:.6rem; } .hud-btn{ font-size:.55rem; padding:.35rem .7rem; } }
+    .nav-links { display:flex; gap:2rem; list-style:none; }
+    .nav-links a { text-decoration:none; font-size:.82rem; font-weight:500; color:var(--muted); transition:color .2s; position:relative; }
+    .nav-links a::after { content:''; position:absolute; bottom:-3px; left:0; right:0; height:2px; background:var(--accent); border-radius:2px; transform:scaleX(0); transition:transform .2s; }
+    .nav-links a:hover, .nav-links a.active { color:var(--accent); }
+    .nav-links a:hover::after, .nav-links a.active::after { transform:scaleX(1); }
 
-    /* ── HUD 하단 ── */
-    .hud-bottom {
-      position:fixed; bottom:0; left:0; right:0; z-index:10;
-      display:flex; justify-content:space-between; align-items:flex-end;
-      padding:2rem 2.5rem;
-      background:linear-gradient(to top,rgba(0,0,0,0.7),transparent);
-      pointer-events:none;
-    }
-    .location-info { pointer-events:none; }
-    .loc-label { font-family:'Space Mono',monospace; font-size:.6rem; letter-spacing:3px; color:var(--gold); margin-bottom:.4rem; text-transform:uppercase; }
-    .loc-name  { font-size:clamp(1.4rem,4vw,2.8rem); font-weight:300; line-height:1.1; font-style:italic; }
-    .loc-name em { font-style:normal; color:var(--gold-l); }
-    .loc-desc  { font-family:'Space Mono',monospace; font-size:.65rem; color:var(--muted); margin-top:.5rem; max-width:400px; line-height:1.7; }
+    /* SCROLL PROGRESS */
+    #scroll-bar { position:fixed; top:0; left:0; height:3px; z-index:200; background:linear-gradient(90deg,var(--accent),#06d6a0); width:0%; transition:width .1s linear; }
 
-    .hud-right { display:flex; flex-direction:column; align-items:flex-end; gap:1rem; pointer-events:all; }
-    .compass {
-      width:56px; height:56px; border-radius:50%;
-      border:1px solid rgba(201,168,76,0.3);
+    /* ─── HERO ─── */
+    .hero-wrap { position:relative; min-height:100vh; display:flex; align-items:center; }
+    .hero {
+      position:relative; z-index:1;
+      display:grid; grid-template-columns:1fr 420px; gap:4rem; align-items:center;
+      padding:8rem 3rem 5rem; max-width:1160px; margin:0 auto; width:100%;
+    }
+    .hero-badge {
+      display:inline-flex; align-items:center; gap:.5rem;
+      background:var(--accent-l); color:var(--accent);
+      font-size:.68rem; font-weight:700; letter-spacing:.12em; text-transform:uppercase;
+      padding:.32rem 1rem; border-radius:100px; margin-bottom:2rem; width:fit-content;
+      border:1px solid rgba(14,169,104,.2);
+    }
+    .hero-name {
+      font-family:'Syne',sans-serif; font-size:clamp(2.8rem,6vw,5.8rem);
+      font-weight:800; line-height:1.02; margin-bottom:1rem;
+    }
+    .hero-name .grad {
+      background:linear-gradient(125deg, var(--text) 0%, var(--accent) 55%, #06d6a0 100%);
+      -webkit-background-clip:text; -webkit-text-fill-color:transparent;
+    }
+    .hero-sub { font-size:1.05rem; font-weight:400; color:var(--muted); margin-bottom:2.8rem; line-height:1.85; max-width:440px; min-height:3.8rem; }
+    .typing-cursor { color:var(--accent); animation:blink .75s step-end infinite; font-weight:300; }
+    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
+    .hero-btns { display:flex; gap:.9rem; flex-wrap:wrap; }
+    .btn {
+      display:inline-flex; align-items:center; gap:.45rem;
+      padding:.78rem 1.85rem; border-radius:12px;
+      font-size:.875rem; font-weight:600; text-decoration:none;
+      transition:all .22s; cursor:pointer; border:none;
+    }
+    .btn-primary { background:linear-gradient(135deg, var(--accent), #06d6a0); color:#fff; box-shadow:0 4px 18px rgba(14,169,104,.28); }
+    .btn-primary:hover { transform:translateY(-2px); box-shadow:0 10px 30px rgba(14,169,104,.38); }
+    .btn-outline { background:var(--card); color:var(--text); border:1.5px solid var(--border); box-shadow:0 2px 8px rgba(0,0,0,.05); }
+    .btn-outline:hover { border-color:var(--accent); color:var(--accent); transform:translateY(-2px); }
+
+    /* HERO CARD */
+    .hero-card {
+      position:relative; z-index:1;
+      background:var(--card); border:1px solid var(--border); border-radius:24px;
+      padding:2rem; box-shadow:0 24px 64px rgba(14,169,104,.1);
+    }
+    .hc-top { display:flex; align-items:center; gap:.75rem; margin-bottom:1.8rem; }
+    .hc-avatar {
+      width:48px; height:48px; border-radius:14px;
+      background:linear-gradient(135deg, var(--accent), #b48cff);
       display:flex; align-items:center; justify-content:center;
-      font-family:'Space Mono',monospace; font-size:.55rem;
-      color:var(--gold); position:relative; background:rgba(0,0,0,0.4);
+      font-family:'Syne',sans-serif; font-size:1.1rem; font-weight:800; color:#fff;
     }
-    .compass-n { position:absolute; top:6px; font-size:.5rem; color:var(--gold-l); }
-    .compass-needle {
-      width:2px; height:18px; background:linear-gradient(var(--gold),transparent);
-      position:absolute; transform-origin:bottom center;
-      bottom:50%; left:50%; margin-left:-1px;
+    .hc-name { font-family:'Syne',sans-serif; font-weight:700; font-size:.95rem; }
+    .hc-role { font-size:.75rem; color:var(--muted); margin-top:.1rem; }
+    .hc-dot { width:8px; height:8px; border-radius:50%; background:#4ade80; margin-left:auto; box-shadow:0 0 8px rgba(74,222,128,.5); }
+
+    .hc-divider { height:1px; background:var(--border); margin-bottom:1.6rem; }
+
+    .hc-stat-row { display:grid; grid-template-columns:1fr 1fr; gap:.8rem; margin-bottom:1.6rem; }
+    .hcs { background:var(--accent-l); border-radius:12px; padding:1rem; }
+    .hcs-n { font-family:'Inter',sans-serif; font-size:1.4rem; font-weight:700; color:var(--accent); letter-spacing:-.02em; }
+    .hcs-l { font-size:.7rem; color:var(--accent); opacity:.7; margin-top:.15rem; }
+
+    .hc-tags-label { font-size:.65rem; font-weight:700; letter-spacing:.12em; text-transform:uppercase; color:var(--muted); margin-bottom:.7rem; }
+    .hc-tags { display:flex; flex-wrap:wrap; gap:.4rem; }
+    .hct { background:var(--bg); border:1px solid var(--border); color:var(--text); font-size:.7rem; font-weight:500; padding:.22rem .65rem; border-radius:6px; }
+
+    /* ─── WHAT I BUILD ─── */
+    .wib-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:1.2rem; }
+    .wib-card {
+      background:var(--card); border:1px solid var(--border); border-radius:20px; padding:2rem;
+      transition:all .28s; position:relative; overflow:hidden;
+    }
+    .wib-card::before {
+      content:''; position:absolute; top:0; left:0; right:0; height:3px;
+      background:linear-gradient(90deg, var(--accent), #06d6a0); opacity:0; transition:opacity .28s;
+    }
+    .wib-card:hover { transform:translateY(-4px); box-shadow:0 16px 48px rgba(14,169,104,.12); border-color:transparent; }
+    .wib-card:hover::before { opacity:1; }
+    .wib-icon { font-size:2rem; margin-bottom:1.2rem; }
+    .wib-title { font-family:'Syne',sans-serif; font-size:1.05rem; font-weight:700; margin-bottom:.6rem; }
+    .wib-desc { font-size:.85rem; color:var(--muted); line-height:1.75; }
+
+    /* ─── SECTIONS ─── */
+    .section { position:relative; z-index:1; padding:6rem 3rem; max-width:1160px; margin:0 auto; }
+    .sec-head { display:flex; align-items:flex-end; justify-content:space-between; margin-bottom:3rem; }
+    .sec-label {
+      font-size:.65rem; font-weight:700; letter-spacing:.18em; text-transform:uppercase;
+      color:var(--accent); margin-bottom:.8rem; display:flex; align-items:center; gap:.6rem;
+    }
+    .sec-label::before { content:''; display:block; width:20px; height:1px; background:var(--accent); }
+    .sec-title { font-family:'Syne',sans-serif; font-size:clamp(1.8rem,3.5vw,2.5rem); font-weight:800; line-height:1.15; }
+    .sec-bg-text {
+      font-family:'Syne',sans-serif; font-size:6rem; font-weight:800;
+      color:rgba(14,169,104,.06); line-height:1; user-select:none; white-space:nowrap;
     }
 
-    .ctrl-hint { font-family:'Space Mono',monospace; font-size:.58rem; color:var(--dim); text-align:right; line-height:1.8; letter-spacing:1px; }
+    /* ABOUT */
+    .about-grid { display:grid; grid-template-columns:1.1fr .9fr; gap:4.5rem; align-items:start; }
+    .about-text p { color:var(--muted); margin-bottom:1.2rem; line-height:1.9; font-size:.95rem; }
+    .about-highlight {
+      background:var(--card); border:1px solid var(--border); border-radius:16px;
+      padding:1.4rem 1.6rem; margin-top:1.8rem;
+      display:flex; align-items:center; gap:1rem;
+    }
+    .ah-icon { font-size:1.6rem; }
+    .ah-text { font-size:.88rem; font-weight:600; color:var(--text); }
+    .ah-sub { font-size:.78rem; color:var(--muted); margin-top:.15rem; }
 
-    /* ── 목적지 패널 ── */
-    .dest-panel {
-      position:fixed; right:0; top:50%; transform:translateY(-50%);
-      z-index:10; display:flex; flex-direction:column; gap:.5rem;
-      padding:0 1.5rem; pointer-events:all;
+    .stat-grid { display:grid; grid-template-columns:1fr 1fr; gap:.9rem; }
+    .stat-card {
+      background:var(--card); border:1px solid var(--border); border-radius:16px; padding:1.6rem;
+      transition:all .25s; position:relative; overflow:hidden;
     }
-    .dest-btn {
-      display:flex; align-items:center; gap:.8rem;
-      background:rgba(0,0,0,0.5); border:1px solid rgba(201,168,76,0.15);
-      padding:.6rem 1rem; cursor:pointer; transition:all .3s;
-      text-align:left;
-    }
-    .dest-btn:hover, .dest-btn.active { border-color:rgba(201,168,76,0.5); background:rgba(201,168,76,0.08); }
-    .dest-dot { width:6px; height:6px; border-radius:50%; background:var(--gold); flex-shrink:0; }
-    .dest-btn.active .dest-dot { box-shadow:0 0 8px var(--gold); }
-    .dest-name { font-family:'Space Mono',monospace; font-size:.6rem; letter-spacing:1.5px; color:var(--muted); text-transform:uppercase; }
-    .dest-btn.active .dest-name, .dest-btn:hover .dest-name { color:var(--gold-l); }
-    @media(max-width:600px){ .dest-panel{ display:none; } }
+    .stat-card:hover { border-color:var(--accent); transform:translateY(-2px); box-shadow:0 8px 24px rgba(14,169,104,.1); }
+    .stat-num { font-family:'Inter',sans-serif; font-size:1.75rem; font-weight:700; color:var(--accent); letter-spacing:-.02em; }
+    .stat-lbl { font-size:.73rem; color:var(--muted); margin-top:.35rem; line-height:1.4; }
 
-    /* ── INTRO 오버레이 ── */
-    #intro {
-      position:fixed; inset:0; z-index:100;
-      display:flex; flex-direction:column; align-items:center; justify-content:center;
-      background:rgba(0,0,0,0.92); text-align:center; padding:2rem;
-      transition:opacity 1s;
+    /* SKILLS */
+    .skills-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(240px,1fr)); gap:1rem; }
+    .skill-card {
+      background:var(--card); border:1px solid var(--border); border-radius:18px; padding:1.8rem;
+      transition:all .25s; position:relative; overflow:hidden;
     }
-    .intro-label { font-family:'Space Mono',monospace; font-size:.65rem; letter-spacing:5px; color:var(--gold); margin-bottom:2rem; text-transform:uppercase; }
-    .intro-title { font-size:clamp(2.5rem,7vw,5.5rem); font-weight:300; font-style:italic; line-height:1.1; margin-bottom:1.5rem; }
-    .intro-title em { font-style:normal; color:var(--gold-l); }
-    .intro-sub { font-family:'Space Mono',monospace; font-size:.78rem; color:var(--muted); max-width:420px; line-height:1.9; margin-bottom:3rem; letter-spacing:.5px; }
-    .intro-start {
-      border:1px solid var(--gold); color:var(--gold);
-      font-family:'Space Mono',monospace; font-size:.72rem; letter-spacing:3px;
-      padding:1rem 3rem; background:transparent; cursor:pointer; text-transform:uppercase;
-      transition:all .4s; animation:pulse 2s ease-in-out infinite;
+    .skill-card::before {
+      content:''; position:absolute; top:0; left:0; right:0; height:3px;
+      background:linear-gradient(90deg, var(--accent), #06d6a0); opacity:0; transition:opacity .25s;
     }
-    .intro-start:hover { background:rgba(201,168,76,0.12); letter-spacing:5px; }
-    @keyframes pulse { 0%,100%{box-shadow:0 0 0 0 rgba(201,168,76,0.3)} 50%{box-shadow:0 0 0 12px rgba(201,168,76,0)} }
+    .skill-card:hover { border-color:transparent; box-shadow:0 10px 32px rgba(14,169,104,.12); transform:translateY(-3px); }
+    .skill-card:hover::before { opacity:1; }
+    .skill-icon { font-size:1.8rem; margin-bottom:1rem; }
+    .skill-cat { font-size:.62rem; font-weight:700; letter-spacing:.14em; text-transform:uppercase; color:var(--accent); margin-bottom:.9rem; }
+    .tags { display:flex; flex-wrap:wrap; gap:.45rem; }
+    .tag { background:var(--accent-l); color:var(--accent); font-size:.73rem; font-weight:600; padding:.28rem .78rem; border-radius:8px; border:1px solid rgba(14,169,104,.12); }
 
-    /* ── ABOUT 패널 ── */
-    #about-panel {
-      position:fixed; inset:0; z-index:50;
-      display:none; align-items:center; justify-content:center;
-      background:rgba(0,0,0,0.85); padding:2rem;
+    /* PROJECTS */
+    .proj-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(340px,1fr)); gap:1.4rem; }
+    .proj-card {
+      background:var(--card); border:1px solid var(--border); border-radius:22px; padding:2.4rem;
+      transition:all .28s; position:relative; overflow:hidden;
     }
-    #about-panel.open { display:flex; }
-    .about-box {
-      max-width:580px; width:100%;
-      border:1px solid rgba(201,168,76,0.25);
-      background:rgba(4,3,10,0.9); padding:3rem;
-      position:relative;
+    .proj-card::before {
+      content:''; position:absolute; top:0; left:0; right:0; height:3px;
+      background:linear-gradient(90deg, var(--accent), #06d6a0); opacity:0; transition:opacity .28s;
     }
-    .about-close {
-      position:absolute; top:1.2rem; right:1.2rem;
-      font-family:'Space Mono',monospace; font-size:.7rem; color:var(--muted);
-      cursor:pointer; background:none; border:none; letter-spacing:2px;
+    .proj-card:hover { border-color:transparent; transform:translateY(-5px); box-shadow:0 20px 60px rgba(14,169,104,.13); }
+    .proj-card:hover::before { opacity:1; }
+    .proj-header { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:1.4rem; }
+    .proj-num { font-family:'Syne',sans-serif; font-size:2.6rem; font-weight:800; color:var(--border); line-height:1; transition:color .25s; }
+    .proj-card:hover .proj-num { color:var(--accent-l); }
+    .proj-badge { font-size:.65rem; font-weight:700; letter-spacing:.1em; text-transform:uppercase; background:var(--accent-l); color:var(--accent); padding:.28rem .75rem; border-radius:6px; }
+    .proj-title { font-family:'Syne',sans-serif; font-size:1.3rem; font-weight:700; margin-bottom:.65rem; }
+    .proj-desc { color:var(--muted); font-size:.875rem; margin-bottom:1.6rem; line-height:1.8; }
+    .proj-tags { display:flex; flex-wrap:wrap; gap:.4rem; margin-bottom:1.6rem; }
+    .proj-link { font-size:.8rem; font-weight:600; color:var(--accent); text-decoration:none; display:inline-flex; align-items:center; gap:.35rem; transition:gap .2s; }
+    .proj-link:hover { gap:.65rem; }
+
+    /* AWARDS */
+    .award-list { display:flex; flex-direction:column; gap:.9rem; }
+    .award-row {
+      display:flex; gap:2.5rem; align-items:center;
+      background:var(--card); border:1px solid var(--border); border-radius:18px;
+      padding:2rem 2.4rem; transition:all .25s; position:relative; overflow:hidden;
     }
-    .about-close:hover { color:var(--gold); }
-    .about-num { font-family:'Space Mono',monospace; font-size:.6rem; letter-spacing:4px; color:var(--gold); margin-bottom:1rem; }
-    .about-name-big { font-size:2.8rem; font-weight:300; font-style:italic; margin-bottom:.3rem; }
-    .about-role { font-family:'Space Mono',monospace; font-size:.65rem; letter-spacing:2px; color:var(--gold); margin-bottom:2rem; }
-    .about-bio { color:var(--muted); line-height:2; font-size:.95rem; margin-bottom:2rem; }
-    .about-links-list { display:flex; flex-direction:column; gap:0; margin-bottom:2rem; }
-    .a-lnk { font-family:'Space Mono',monospace; font-size:.65rem; color:var(--muted); text-decoration:none; display:flex; justify-content:space-between; padding:.7rem 0; border-bottom:1px solid rgba(201,168,76,0.1); transition:color .3s; letter-spacing:.5px; }
-    .a-lnk:hover { color:var(--gold-l); }
-    .skills-row { display:flex; flex-wrap:wrap; gap:.4rem; }
-    .sk { border:1px solid rgba(201,168,76,0.25); color:var(--gold); font-family:'Space Mono',monospace; font-size:.58rem; padding:.25rem .75rem; letter-spacing:.5px; }
+    .award-row::before {
+      content:''; position:absolute; left:0; top:0; bottom:0; width:3px;
+      background:linear-gradient(180deg, var(--accent), #06d6a0); opacity:0; transition:opacity .25s;
+    }
+    .award-row:hover { border-color:var(--accent); box-shadow:0 8px 28px rgba(14,169,104,.1); }
+    .award-row:hover::before { opacity:1; }
+    .award-icon { font-size:1.8rem; }
+    .award-yr { font-family:'Syne',sans-serif; font-size:1rem; font-weight:800; color:var(--accent); white-space:nowrap; }
+    .award-name { font-weight:600; margin-bottom:.3rem; font-size:.98rem; }
+    .award-sub { font-size:.83rem; color:var(--muted); }
+
+    /* CONTACT */
+    .contact-box {
+      background:linear-gradient(135deg, #0b8a54 0%, #0ea968 50%, #06d6a0 100%);
+      border-radius:28px; padding:5.5rem 3rem; text-align:center; position:relative; overflow:hidden;
+    }
+    .contact-box::before {
+      content:''; position:absolute; inset:0;
+      background-image:radial-gradient(circle, rgba(255,255,255,.09) 1.5px, transparent 1.5px);
+      background-size:24px 24px;
+    }
+    .contact-box::after {
+      content:'CONTACT'; position:absolute; bottom:-1rem; right:2rem;
+      font-family:'Syne',sans-serif; font-size:8rem; font-weight:800;
+      color:rgba(255,255,255,.05); line-height:1; pointer-events:none;
+    }
+    .contact-box .sec-label { color:rgba(255,255,255,.55); justify-content:center; position:relative; }
+    .contact-box .sec-label::before { background:rgba(255,255,255,.4); }
+    .contact-box .sec-title { color:#fff; margin-bottom:.8rem; position:relative; }
+    .contact-box > p { color:rgba(255,255,255,.75); max-width:440px; margin:0 auto 2.8rem; line-height:1.8; position:relative; }
+    .contact-links { display:flex; justify-content:center; gap:1rem; flex-wrap:wrap; position:relative; }
+    .c-link {
+      display:inline-flex; align-items:center; gap:.5rem;
+      background:rgba(255,255,255,.14); color:#fff;
+      padding:.72rem 1.7rem; border-radius:14px; text-decoration:none;
+      font-size:.875rem; font-weight:500; border:1px solid rgba(255,255,255,.22);
+      backdrop-filter:blur(8px); transition:all .2s;
+    }
+    .c-link:hover { background:rgba(255,255,255,.26); transform:translateY(-2px); }
+
+    /* FOOTER */
+    footer { position:relative; z-index:1; text-align:center; padding:2.2rem; font-size:.78rem; color:var(--muted); border-top:1px solid var(--border); }
+
+    /* ─── SNAKE FAB ─── */
+    #snake-fab {
+      position:fixed; bottom:2rem; right:2rem; z-index:300;
+      width:52px; height:52px; border-radius:50%; border:none; cursor:pointer;
+      background:var(--accent); color:#fff; font-size:1.4rem;
+      box-shadow:0 4px 20px rgba(14,169,104,.45);
+      transition:all .22s; display:flex; align-items:center; justify-content:center;
+    }
+    #snake-fab:hover { transform:scale(1.12); box-shadow:0 8px 28px rgba(14,169,104,.55); }
+    #snake-fab.playing { background:#e53e3e; box-shadow:0 4px 20px rgba(229,62,62,.45); font-size:1rem; font-weight:700; font-family:'Inter',sans-serif; }
+
+    /* SNAKE FULLSCREEN */
+    #snake-dim { position:fixed; inset:0; z-index:498; background:rgba(13,43,30,.28); backdrop-filter:blur(1px); display:none; pointer-events:none; }
+    #snake-canvas { position:fixed; inset:0; z-index:499; display:none; cursor:none; }
+    #snake-hud {
+      position:fixed; top:1.4rem; left:50%; transform:translateX(-50%);
+      z-index:501; display:none; gap:2rem; align-items:center;
+      background:rgba(13,43,30,.82); backdrop-filter:blur(12px);
+      padding:.6rem 2rem; border-radius:100px; border:1px solid rgba(14,169,104,.25);
+      font-size:.82rem; font-weight:600; color:rgba(6,214,160,.75); white-space:nowrap;
+    }
+    #snake-hud strong { color:#06d6a0; }
+    #snake-start-screen {
+      position:fixed; inset:0; z-index:502; display:none;
+      align-items:center; justify-content:center; flex-direction:column; gap:1.2rem; color:#fff;
+      pointer-events:all;
+    }
+    #snake-start-screen h3 { font-family:'Syne',sans-serif; font-size:2.2rem; font-weight:800; }
+    #snake-start-screen p { font-size:.95rem; color:rgba(255,255,255,.6); }
+    .sgo-score { font-size:3rem; font-weight:700; color:#06d6a0; font-family:'Inter'; line-height:1; }
+    .game-go-btn {
+      font-family:'Inter',sans-serif; font-size:.9rem; font-weight:700;
+      padding:.7rem 2.2rem; border-radius:12px; cursor:pointer;
+      background:var(--accent); color:#fff; border:none;
+      transition:all .2s; box-shadow:0 4px 18px rgba(14,169,104,.4); margin-top:.4rem;
+    }
+    .game-go-btn:hover { transform:translateY(-2px); }
+
+    /* 3D TILT */
+    .tilt { transform-style:preserve-3d; transition:transform .12s ease, box-shadow .12s ease; will-change:transform; }
+
+    /* CURSOR TRAIL */
+    .trail-dot {
+      position:fixed; pointer-events:none; z-index:9999;
+      width:6px; height:6px; border-radius:50%;
+      background:var(--accent); opacity:.7;
+      transform:translate(-50%,-50%);
+      transition:opacity .5s ease;
+    }
+
+    /* FADE */
+    .fade { opacity:0; transform:translateY(32px); transition:opacity .7s ease, transform .7s ease; }
+    .fade.show { opacity:1; transform:none; }
+
+    /* RESPONSIVE */
+    @media(max-width:900px) {
+      .hero { grid-template-columns:1fr; }
+      .hero-card { display:none; }
+      .wib-grid { grid-template-columns:1fr; }
+    }
+    @media(max-width:768px) {
+      nav { padding:1rem 1.5rem; }
+      .nav-links { display:none; }
+      .section { padding:4rem 1.5rem; }
+      .about-grid { grid-template-columns:1fr; gap:2.5rem; }
+      .contact-box { padding:3.5rem 1.5rem; }
+      .award-row { flex-direction:column; gap:.5rem; align-items:flex-start; }
+      .sec-bg-text { display:none; }
+    }
   </style>
 </head>
 <body>
 
-<div id="cursor"></div>
-<div id="cursor-ring"></div>
-
-<!-- INTRO -->
-<div id="intro">
-  <div class="intro-label">Cosmos Museum · VR Experience</div>
-  <h1 class="intro-title">우주 속으로<br><em>들어가다</em></h1>
-  <p class="intro-sub">마우스로 시점을 돌리면<br>360° 우주 한가운데 서있는 느낌을 경험합니다.<br>실제 NASA · 허블 관측 데이터 기반</p>
-  <button class="intro-start" onclick="startVR()">탐험 시작 →</button>
+<div id="scroll-bar"></div>
+<canvas id="particle-canvas"></canvas>
+<div class="blob-wrap">
+  <div class="blob blob-1"></div>
+  <div class="blob blob-2"></div>
 </div>
 
-<!-- ABOUT 패널 -->
-<div id="about-panel">
-  <div class="about-box">
-    <button class="about-close" onclick="document.getElementById('about-panel').classList.remove('open')">✕ 닫기</button>
-    <div class="about-num">Curator No. 001</div>
-    <div class="about-name-big">경민</div>
-    <div class="about-role">Web Developer & Space Enthusiast</div>
-    <p class="about-bio">웹 개발과 우주에 깊은 관심을 가진 개발자입니다.<br><br>이 VR 우주 체험관은 Three.js, NASA APOD API, 허블 우주망원경 공개 이미지를 활용해 직접 제작했습니다. DNS 구조와 GitHub Pages 배포, 가비아 도메인 연결까지 처음부터 끝까지 혼자 구현했습니다.</p>
-    <div class="about-links-list">
-      <a class="a-lnk" href="mailto:gyungmin306@gmail.com"><span>📧 gyungmin306@gmail.com</span><span>→</span></a>
-      <a class="a-lnk" href="https://github.com/gyungmin306-dev" target="_blank"><span>🐙 github.com/gyungmin306-dev</span><span>→</span></a>
-      <a class="a-lnk" href="https://gyung.store" target="_blank"><span>🌐 gyung.store</span><span>→</span></a>
-    </div>
-    <div style="font-family:'Space Mono',monospace;font-size:.58rem;letter-spacing:2px;color:var(--dim);margin-bottom:.8rem;">기술 스택</div>
-    <div class="skills-row">
-      <span class="sk">Three.js</span><span class="sk">WebGL</span><span class="sk">NASA API</span>
-      <span class="sk">HTML/CSS</span><span class="sk">JavaScript</span><span class="sk">GitHub Pages</span>
-      <span class="sk">DNS · CNAME</span><span class="sk">가비아</span>
-    </div>
-  </div>
-</div>
+<!-- NAV -->
+<nav>
+  <a href="#" class="nav-logo">경민.</a>
+  <ul class="nav-links">
+    <li><a href="#about">소개</a></li>
+    <li><a href="#skills">기술</a></li>
+    <li><a href="#projects">프로젝트</a></li>
+    <li><a href="#contact">연락</a></li>
+  </ul>
+</nav>
 
-<!-- 캔버스 -->
-<canvas id="vr-canvas"></canvas>
-
-<!-- HUD 상단 -->
-<div class="hud-top">
-  <div class="hud-logo">✦ COSMOS VR</div>
-  <div class="hud-nav">
-    <button class="hud-btn" onclick="document.getElementById('about-panel').classList.add('open')">큐레이터</button>
-    <button class="hud-btn" id="autoBtn" onclick="toggleAuto()">자동회전 ON</button>
-    <button class="hud-btn" id="vrBtn" onclick="toggleVR()">🥽 VR모드</button>
-  </div>
-</div>
-
-<!-- HUD 하단 -->
-<div class="hud-bottom">
-  <div class="location-info">
-    <div class="loc-label" id="locLabel">현재 위치</div>
-    <div class="loc-name" id="locName">허블 <em>딥필드</em></div>
-    <div class="loc-desc" id="locDesc">허블 우주망원경이 촬영한 우주에서 가장 깊은 곳. 수천 개의 은하가 담긴 이 사진 한 장에는 100억 광년 너머의 우주가 담겨 있습니다.</div>
-  </div>
-  <div class="hud-right">
-    <div class="compass" id="compass">
-      <div class="compass-n">N</div>
-      <div class="compass-needle" id="needle"></div>
+<!-- HERO -->
+<div class="hero-wrap">
+  <div class="hero">
+    <div class="hero-left">
+      <div class="hero-badge">✦ 경남대학교 컴퓨터공학부</div>
+      <h1 class="hero-name">안녕하세요,<br><span class="grad">경민</span>입니다.</h1>
+      <p class="hero-sub"><span id="typing-text"></span><span class="typing-cursor">|</span></p>
+      <div class="hero-btns">
+        <a href="#contact" class="btn btn-primary">연락하기 →</a>
+        <a href="https://github.com/gyungmin306-dev" target="_blank" class="btn btn-outline">GitHub ↗</a>
+      </div>
     </div>
-    <div class="ctrl-hint" id="ctrlHint">
-      마우스 드래그 · 시점 이동<br>
-      스크롤 · 줌<br>
-      터치 · 드래그
+    <div class="hero-card">
+      <div class="hc-top">
+        <div class="hc-avatar">경</div>
+        <div>
+          <div class="hc-name">경민</div>
+          <div class="hc-role">CS · AI Developer</div>
+        </div>
+        <div class="hc-dot"></div>
+      </div>
+      <div class="hc-divider"></div>
+      <div class="hc-stat-row">
+        <div class="hcs">
+          <div class="hcs-n">2025</div>
+          <div class="hcs-l">최우수상</div>
+        </div>
+        <div class="hcs">
+          <div class="hcs-n">3+</div>
+          <div class="hcs-l">프로젝트</div>
+        </div>
+      </div>
+      <div class="hc-tags-label">Tech Stack</div>
+      <div class="hc-tags">
+        <span class="hct">Claude API</span>
+        <span class="hct">Python</span>
+        <span class="hct">Three.js</span>
+        <span class="hct">WebSocket</span>
+        <span class="hct">AWS</span>
+        <span class="hct">Android</span>
+      </div>
     </div>
   </div>
 </div>
 
-<!-- 목적지 패널 -->
-<div class="dest-panel">
-  <button class="dest-btn active" data-idx="0" onclick="goTo(0)"><div class="dest-dot"></div><div class="dest-name">허블 딥필드</div></button>
-  <button class="dest-btn" data-idx="1" onclick="goTo(1)"><div class="dest-dot"></div><div class="dest-name">안드로메다</div></button>
-  <button class="dest-btn" data-idx="2" onclick="goTo(2)"><div class="dest-dot"></div><div class="dest-name">창조의 기둥</div></button>
-  <button class="dest-btn" data-idx="3" onclick="goTo(3)"><div class="dest-dot"></div><div class="dest-name">게 성운</div></button>
-  <button class="dest-btn" data-idx="4" onclick="goTo(4)"><div class="dest-dot"></div><div class="dest-name">나선 은하</div></button>
+<!-- WHAT I BUILD -->
+<section class="section fade">
+  <div class="sec-head">
+    <div>
+      <div class="sec-label">What I Build</div>
+      <h2 class="sec-title">이런 걸 만듭니다</h2>
+    </div>
+    <div class="sec-bg-text">BUILD</div>
+  </div>
+  <div class="wib-grid">
+    <div class="wib-card">
+      <div class="wib-icon">🤖</div>
+      <div class="wib-title">AI 서비스</div>
+      <p class="wib-desc">Claude API를 활용한 실용적인 AI 기반 웹서비스. 아이디어를 실제로 사용 가능한 서비스로 구현하고 배포합니다.</p>
+    </div>
+    <div class="wib-card">
+      <div class="wib-icon">🖥️</div>
+      <div class="wib-title">데스크탑 앱</div>
+      <p class="wib-desc">Python + PySide2로 원격 제어 솔루션 등 실제 운영 환경에서 사용되는 데스크탑 애플리케이션을 개발합니다.</p>
+    </div>
+    <div class="wib-card">
+      <div class="wib-icon">🌐</div>
+      <div class="wib-title">웹 경험</div>
+      <p class="wib-desc">Three.js, WebGL을 활용한 인터랙티브 웹 경험. 360° VR 뷰어 등 브라우저에서 동작하는 몰입형 콘텐츠를 만듭니다.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ABOUT -->
+<section class="section fade" id="about">
+  <div class="sec-head">
+    <div>
+      <div class="sec-label">About</div>
+      <h2 class="sec-title">저를 소개합니다</h2>
+    </div>
+    <div class="sec-bg-text">ABOUT</div>
+  </div>
+  <div class="about-grid">
+    <div class="about-text">
+      <p>AI 기반 서비스를 직접 구현하고 배포까지 완료한 컴퓨터공학 전공자입니다.</p>
+      <p>Claude API를 활용한 웹서비스 개발과 생성형 AI 프로젝트 실전 경험을 보유하고 있으며, 아이디어를 실제 동작하는 서비스로 만드는 것을 즐깁니다.</p>
+      <p>경남대 2025 생성형AI 고급 인재양성 과정을 <strong>최우수상</strong>으로 수료하였습니다.</p>
+      <div class="about-highlight">
+        <div class="ah-icon">🏆</div>
+        <div>
+          <div class="ah-text">2025 생성형AI 고급 인재양성 최우수상</div>
+          <div class="ah-sub">경남대학교 · AI 웹서비스 개발 · 배포 부문</div>
+        </div>
+      </div>
+    </div>
+    <div class="stat-grid">
+      <div class="stat-card">
+        <div class="stat-num">2025</div>
+        <div class="stat-lbl">생성형AI 최우수상 수상</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-num">AI</div>
+        <div class="stat-lbl">Claude API · 생성형 AI 전문</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-num">3+</div>
+        <div class="stat-lbl">배포 완료 프로젝트</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-num">CS</div>
+        <div class="stat-lbl">컴퓨터공학부 재학</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- SKILLS -->
+<section class="section fade" id="skills">
+  <div class="sec-head">
+    <div>
+      <div class="sec-label">Skills</div>
+      <h2 class="sec-title">기술 스택</h2>
+    </div>
+    <div class="sec-bg-text">SKILLS</div>
+  </div>
+  <div class="skills-grid">
+    <div class="skill-card">
+      <div class="skill-icon">🤖</div>
+      <div class="skill-cat">AI / ML</div>
+      <div class="tags">
+        <span class="tag">Claude API</span>
+        <span class="tag">생성형 AI</span>
+        <span class="tag">Prompt Engineering</span>
+      </div>
+    </div>
+    <div class="skill-card">
+      <div class="skill-icon">🎨</div>
+      <div class="skill-cat">Frontend</div>
+      <div class="tags">
+        <span class="tag">JavaScript</span>
+        <span class="tag">Three.js</span>
+        <span class="tag">HTML / CSS</span>
+      </div>
+    </div>
+    <div class="skill-card">
+      <div class="skill-icon">⌨️</div>
+      <div class="skill-cat">Language</div>
+      <div class="tags">
+        <span class="tag">Python</span>
+        <span class="tag">C</span>
+        <span class="tag">JavaScript</span>
+      </div>
+    </div>
+    <div class="skill-card">
+      <div class="skill-icon">🚀</div>
+      <div class="skill-cat">Deploy</div>
+      <div class="tags">
+        <span class="tag">AWS</span>
+        <span class="tag">GitHub Pages</span>
+        <span class="tag">Ubuntu Server</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- PROJECTS -->
+<section class="section fade" id="projects">
+  <div class="sec-head">
+    <div>
+      <div class="sec-label">Projects</div>
+      <h2 class="sec-title">프로젝트</h2>
+    </div>
+    <div class="sec-bg-text">WORK</div>
+  </div>
+  <div class="proj-grid">
+    <div class="proj-card">
+      <div class="proj-header">
+        <div class="proj-num">01</div>
+        <div class="proj-badge">풀스택</div>
+      </div>
+      <div class="proj-title">Remocare</div>
+      <p class="proj-desc">AnyDesk 방식의 원격 데스크탑 지원 툴. 상담사가 고객 PC·Android에 원격 접속해 화면을 보고 마우스·키보드를 제어할 수 있는 풀스택 솔루션. 6자리 코드 기반 세션, Fernet 암호화 WebSocket, DoS 방어 포함.</p>
+      <div class="proj-tags">
+        <span class="tag">Python</span><span class="tag">WebSocket</span><span class="tag">PySide2</span><span class="tag">Android</span><span class="tag">Ubuntu</span>
+      </div>
+    </div>
+    <div class="proj-card">
+      <div class="proj-header">
+        <div class="proj-num">02</div>
+        <div class="proj-badge">최우수상</div>
+      </div>
+      <div class="proj-title">AI 웹서비스</div>
+      <p class="proj-desc">Claude API를 활용해 실제 사용자에게 배포된 AI 기반 웹서비스. 경남대 2025 생성형AI 고급 인재양성 과정 최우수 수상작.</p>
+      <div class="proj-tags">
+        <span class="tag">Claude API</span><span class="tag">Python</span><span class="tag">AWS</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- AWARDS -->
+<section class="section fade">
+  <div class="sec-head">
+    <div>
+      <div class="sec-label">Awards</div>
+      <h2 class="sec-title">수상 및 활동</h2>
+    </div>
+    <div class="sec-bg-text">AWARDS</div>
+  </div>
+  <div class="award-list">
+    <div class="award-row">
+      <div class="award-icon">🏆</div>
+      <div class="award-yr">2025</div>
+      <div>
+        <div class="award-name">경남대 생성형AI 고급 인재양성 최우수상</div>
+        <div class="award-sub">생성형 AI 활용 웹서비스 개발 · 배포 부문</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- SNAKE FAB + OVERLAY -->
+<button id="snake-fab" onclick="toggleSnake()" title="🐍 스네이크 게임">🐍</button>
+<div id="snake-dim"></div>
+<canvas id="snake-canvas"></canvas>
+<div id="snake-hud">
+  <span>점수 <strong id="snake-score">0</strong></span>
+  <span>최고 <strong id="snake-best">0</strong></span>
+  <span style="opacity:.5;font-size:.72rem">방향키 · ESC 종료</span>
+</div>
+<div id="snake-start-screen">
+  <h3>🐍 스네이크</h3>
+  <p>포트폴리오 위를 돌아다니는 뱀</p>
+  <button class="game-go-btn" onclick="startSnake()">시작하기</button>
 </div>
 
-<!-- Three.js -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<!-- CONTACT -->
+<section class="section fade" id="contact">
+  <div class="contact-box">
+    <div class="sec-label">Contact</div>
+    <h2 class="sec-title">함께 만들어봐요</h2>
+    <p>새로운 프로젝트나 협업 제안이 있으시면 언제든 연락 주세요.</p>
+    <div class="contact-links">
+      <a href="mailto:gyungmin306@gmail.com" class="c-link">📧 이메일</a>
+      <a href="https://github.com/gyungmin306-dev" target="_blank" class="c-link">🐙 GitHub</a>
+    </div>
+  </div>
+</section>
+
+<footer>© 2026 경민. Built with ♥</footer>
+
 <script>
-/* ══ CURSOR ══ */
-const cur=document.getElementById('cursor'),ring=document.getElementById('cursor-ring');
-let mx=0,my=0,rx=0,ry=0;
-document.addEventListener('mousemove',e=>{ mx=e.clientX; my=e.clientY; cur.style.left=mx+'px'; cur.style.top=my+'px'; });
-(function a(){ rx+=(mx-rx)*0.1; ry+=(my-ry)*0.1; ring.style.left=rx+'px'; ring.style.top=ry+'px'; requestAnimationFrame(a); })();
+  // ── SCROLL PROGRESS BAR ───────────────────────────────────
+  const scrollBar = document.getElementById('scroll-bar');
+  window.addEventListener('scroll', () => {
+    const pct = window.scrollY / (document.body.scrollHeight - window.innerHeight) * 100;
+    scrollBar.style.width = Math.min(pct, 100) + '%';
+  }, { passive: true });
 
-/* ══ LOCATIONS ══ */
-const LOCATIONS = [
-  {
-    name:'허블 <em>딥필드</em>',
-    label:'Hubble Ultra Deep Field',
-    desc:'허블 우주망원경이 촬영한 우주에서 가장 깊은 곳. 수천 개의 은하가 담긴 이 사진 한 장에는 100억 광년 너머의 우주가 담겨 있습니다.',
-    url:'https://upload.wikimedia.org/wikipedia/commons/thumb/2/2f/Hubble_ultra_deep_field.jpg/1920px-Hubble_ultra_deep_field.jpg'
-  },
-  {
-    name:'안드로메다 <em>은하</em>',
-    label:'Andromeda Galaxy · M31',
-    desc:'250만 광년 거리에 위치한 가장 가까운 대형 나선 은하. 약 40억 년 후 우리 은하와 충돌할 예정입니다.',
-    url:'https://upload.wikimedia.org/wikipedia/commons/thumb/9/98/Andromeda_Galaxy_%28with_h-alpha%29.jpg/1920px-Andromeda_Galaxy_%28with_h-alpha%29.jpg'
-  },
-  {
-    name:'창조의 <em>기둥</em>',
-    label:'Pillars of Creation · Eagle Nebula',
-    desc:'독수리 성운 내부의 별 탄생 지역. 차갑고 밀도 높은 수소 가스 기둥 속에서 새로운 별들이 태어나고 있습니다.',
-    url:'https://upload.wikimedia.org/wikipedia/commons/thumb/6/68/Pillars_of_creation_2014_HST_WFC3-UVIS_full-res_denoised.jpg/1080px-Pillars_of_creation_2014_HST_WFC3-UVIS_full-res_denoised.jpg'
-  },
-  {
-    name:'게 <em>성운</em>',
-    label:'Crab Nebula · M1',
-    desc:'1054년에 폭발한 초신성의 잔해. 중심에는 초당 30회 회전하는 펄사가 있으며 강력한 X선과 감마선을 방출합니다.',
-    url:'https://upload.wikimedia.org/wikipedia/commons/thumb/5/5e/Crab_Nebula.jpg/1920px-Crab_Nebula.jpg'
-  },
-  {
-    name:'NGC <em>4414</em>',
-    label:'Flocculent Spiral Galaxy',
-    desc:'6,200만 광년 거리의 솜뭉치 나선 은하. 중심의 황금빛 노성들과 외곽의 푸른 젊은 별들이 아름다운 대조를 이룹니다.',
-    url:'https://upload.wikimedia.org/wikipedia/commons/thumb/c/c3/NGC_4414_%28NASA-med%29.jpg/1920px-NGC_4414_%28NASA-med%29.jpg'
-  }
-];
+  // ── NAV HIGHLIGHT ─────────────────────────────────────────
+  const navLinks = document.querySelectorAll('.nav-links a[href^="#"]');
+  const sections = [...navLinks].map(a => document.querySelector(a.getAttribute('href'))).filter(Boolean);
+  const navObs = new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if(e.isIntersecting) {
+        navLinks.forEach(a => a.classList.toggle('active', a.getAttribute('href') === '#'+e.target.id));
+      }
+    });
+  }, { threshold: 0.4 });
+  sections.forEach(s => navObs.observe(s));
 
-/* ══ THREE.JS VR SETUP ══ */
-const canvas = document.getElementById('vr-canvas');
-const renderer = new THREE.WebGLRenderer({ canvas, antialias:true });
-renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-renderer.setSize(window.innerWidth, window.innerHeight);
-
-const scene = new THREE.Scene();
-const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
-camera.position.set(0, 0, 0.01);
-
-window.addEventListener('resize', ()=>{
-  renderer.setSize(window.innerWidth, window.innerHeight);
-  camera.aspect = window.innerWidth/window.innerHeight;
-  camera.updateProjectionMatrix();
-});
-
-/* 구체 (360° 스카이박스) */
-const sphereGeo = new THREE.SphereGeometry(500, 64, 32);
-sphereGeo.scale(-1, 1, 1); // 안쪽에서 보기
-const loader = new THREE.TextureLoader();
-loader.crossOrigin = 'anonymous';
-
-const sphereMat = new THREE.MeshBasicMaterial();
-const sphere = new THREE.Mesh(sphereGeo, sphereMat);
-scene.add(sphere);
-
-/* 별 파티클 */
-function makeStars() {
-  const geo = new THREE.BufferGeometry();
-  const N = 4000;
-  const pos = new Float32Array(N*3);
-  const col = new Float32Array(N*3);
-  for(let i=0;i<N;i++){
-    const theta = Math.random()*Math.PI*2;
-    const phi   = Math.acos(2*Math.random()-1);
-    const r     = 450 + Math.random()*40;
-    pos[i*3]   = r*Math.sin(phi)*Math.cos(theta);
-    pos[i*3+1] = r*Math.sin(phi)*Math.sin(theta);
-    pos[i*3+2] = r*Math.cos(phi);
-    const bright = 0.6+Math.random()*0.4;
-    col[i*3]=bright; col[i*3+1]=bright*0.95; col[i*3+2]=bright*0.9+Math.random()*0.1;
-  }
-  geo.setAttribute('position', new THREE.BufferAttribute(pos,3));
-  geo.setAttribute('color',    new THREE.BufferAttribute(col,3));
-  const mat = new THREE.PointsMaterial({ size:1.2, vertexColors:true, transparent:true, opacity:0.85, sizeAttenuation:false });
-  return new THREE.Points(geo, mat);
-}
-scene.add(makeStars());
-
-/* 텍스처 로드 */
-let curIdx = 0;
-let isTransitioning = false;
-
-function loadTexture(idx, cb) {
-  loader.load(
-    LOCATIONS[idx].url,
-    tex => { sphereMat.map = tex; sphereMat.needsUpdate = true; if(cb) cb(); },
-    undefined,
-    () => {
-      // 로드 실패시 단색 처리
-      sphereMat.color = new THREE.Color(0x020208);
-      sphereMat.needsUpdate = true;
-      if(cb) cb();
-    }
-  );
-}
-
-function updateHUD(idx) {
-  const loc = LOCATIONS[idx];
-  document.getElementById('locLabel').textContent = loc.label;
-  document.getElementById('locName').innerHTML   = loc.name;
-  document.getElementById('locDesc').textContent  = loc.desc;
-  document.querySelectorAll('.dest-btn').forEach((b,i)=>{
-    b.classList.toggle('active', i===idx);
-  });
-}
-
-function goTo(idx) {
-  if(isTransitioning || idx===curIdx) return;
-  isTransitioning = true;
-  // 페이드 아웃
-  fadeSphere(0, ()=>{
-    curIdx = idx;
-    loadTexture(idx, ()=>{
-      updateHUD(idx);
-      fadeSphere(1, ()=>{ isTransitioning=false; });
+  // ── 3D TILT ───────────────────────────────────────────────
+  document.querySelectorAll('.proj-card, .skill-card, .stat-card, .wib-card').forEach(card => {
+    card.classList.add('tilt');
+    card.addEventListener('mousemove', e => {
+      const r = card.getBoundingClientRect();
+      const x = (e.clientX - r.left) / r.width  - 0.5;
+      const y = (e.clientY - r.top)  / r.height - 0.5;
+      card.style.transform = `perspective(600px) rotateY(${x*12}deg) rotateX(${-y*12}deg) scale(1.03)`;
+      card.style.boxShadow = `${-x*14}px ${y*14}px 32px rgba(14,169,104,.12)`;
+    });
+    card.addEventListener('mouseleave', () => {
+      card.style.transform = '';
+      card.style.boxShadow = '';
     });
   });
-}
 
-let sphereOpacity = 1;
-let targetOpacity = 1;
-function fadeSphere(to, cb) {
-  targetOpacity = to;
-  const step = () => {
-    sphereOpacity += (targetOpacity - sphereOpacity) * 0.12;
-    sphereMat.opacity = sphereOpacity;
-    sphereMat.transparent = true;
-    if(Math.abs(sphereOpacity - targetOpacity) > 0.01) {
-      requestAnimationFrame(step);
+  // ── TYPING EFFECT ─────────────────────────────────────────
+  const lines = [
+    'AI 기반 서비스를 직접 구현하고',
+    '배포까지 완료하는',
+    '컴퓨터공학 전공자입니다.'
+  ];
+  const full = lines.join('\n');
+  const el = document.getElementById('typing-text');
+  let ti = 0, deleting = false;
+  function typeLoop() {
+    if(!deleting) {
+      el.textContent = full.slice(0, ti);
+      // preserve line breaks
+      el.innerHTML = full.slice(0,ti).replace(/\n/g,'<br>');
+      if(ti < full.length) { ti++; setTimeout(typeLoop, ti===full.length ? 2200 : 38); }
+      else { deleting=true; setTimeout(typeLoop, 2200); }
     } else {
-      sphereMat.opacity = targetOpacity;
-      if(cb) cb();
+      ti = Math.max(0, ti-2);
+      el.innerHTML = full.slice(0,ti).replace(/\n/g,'<br>');
+      if(ti > 0) setTimeout(typeLoop, 18);
+      else { deleting=false; setTimeout(typeLoop, 400); }
     }
-  };
-  step();
-}
-
-/* ══ 카메라 컨트롤 (드래그 회전) ══ */
-let isDrag=false, prevX=0, prevY=0;
-let yaw=0, pitch=0;
-let autoRotate=true;
-let targetYaw=0, targetPitch=0;
-
-function onDown(x,y){ isDrag=true; prevX=x; prevY=y; autoRotate=false; document.getElementById('autoBtn').textContent='자동회전 OFF'; }
-function onMove(x,y){
-  if(!isDrag)return;
-  const dx=x-prevX, dy=y-prevY;
-  targetYaw   -= dx*0.003;
-  targetPitch -= dy*0.002;
-  targetPitch  = Math.max(-Math.PI/2.2, Math.min(Math.PI/2.2, targetPitch));
-  prevX=x; prevY=y;
-}
-function onUp(){ isDrag=false; }
-
-canvas.addEventListener('mousedown',e=>onDown(e.clientX,e.clientY));
-window.addEventListener('mouseup',onUp);
-window.addEventListener('mousemove',e=>{ if(isDrag) onMove(e.clientX,e.clientY); });
-canvas.addEventListener('touchstart',e=>{ onDown(e.touches[0].clientX,e.touches[0].clientY); e.preventDefault(); },{passive:false});
-canvas.addEventListener('touchend',onUp);
-canvas.addEventListener('touchmove',e=>{ onMove(e.touches[0].clientX,e.touches[0].clientY); e.preventDefault(); },{passive:false});
-
-/* 줌 */
-let fov=75;
-canvas.addEventListener('wheel',e=>{
-  fov = Math.max(30, Math.min(100, fov+e.deltaY*0.05));
-  camera.fov=fov; camera.updateProjectionMatrix();
-},{passive:true});
-
-/* ══ AUTO ROTATE ══ */
-function toggleAuto(){
-  autoRotate=!autoRotate;
-  document.getElementById('autoBtn').textContent=autoRotate?'자동회전 ON':'자동회전 OFF';
-}
-
-/* ══ VR 모드 (DeviceOrientation) ══ */
-let vrMode=false;
-function toggleVR(){
-  if(!vrMode){
-    if(typeof DeviceOrientationEvent!=='undefined'&&typeof DeviceOrientationEvent.requestPermission==='function'){
-      DeviceOrientationEvent.requestPermission().then(s=>{ if(s==='granted') enableVR(); });
-    } else { enableVR(); }
-  } else { disableVR(); }
-}
-function enableVR(){
-  vrMode=true; autoRotate=false;
-  document.getElementById('vrBtn').classList.add('active');
-  document.getElementById('ctrlHint').innerHTML='기기를 기울여서<br>우주를 둘러보세요 🥽';
-  window.addEventListener('deviceorientation',onOrientation);
-}
-function disableVR(){
-  vrMode=false;
-  document.getElementById('vrBtn').classList.remove('active');
-  document.getElementById('ctrlHint').innerHTML='마우스 드래그 · 시점 이동<br>스크롤 · 줌<br>터치 · 드래그';
-  window.removeEventListener('deviceorientation',onOrientation);
-}
-function onOrientation(e){
-  if(e.beta===null)return;
-  targetPitch = THREE.MathUtils.degToRad(-(e.beta-90)*0.8);
-  targetYaw   = THREE.MathUtils.degToRad(-e.gamma*1.2);
-  targetPitch = Math.max(-Math.PI/2.2, Math.min(Math.PI/2.2, targetPitch));
-}
-
-/* ══ RENDER LOOP ══ */
-const euler = new THREE.Euler(0,0,0,'YXZ');
-const clock  = new THREE.Clock();
-
-function animate(){
-  requestAnimationFrame(animate);
-  const dt = clock.getDelta();
-
-  if(autoRotate) targetYaw += 0.04*dt;
-
-  // 부드러운 보간
-  yaw   += (targetYaw-yaw)*0.06;
-  pitch += (targetPitch-pitch)*0.06;
-
-  euler.set(pitch, yaw, 0);
-  camera.quaternion.setFromEuler(euler);
-
-  // 나침반
-  document.getElementById('needle').style.transform=`rotate(${yaw*180/Math.PI}deg)`;
-
-  renderer.render(scene, camera);
-}
-
-/* ══ 자동 전환 (30초마다) ══ */
-let autoSwitchTimer=0;
-function autoSwitch(dt){
-  autoSwitchTimer+=dt;
-  if(autoSwitchTimer>30){
-    autoSwitchTimer=0;
-    if(autoRotate) goTo((curIdx+1)%LOCATIONS.length);
   }
-}
+  setTimeout(typeLoop, 800);
 
-/* 키보드 단축키 */
-window.addEventListener('keydown',e=>{
-  if(e.key==='ArrowRight') goTo((curIdx+1)%LOCATIONS.length);
-  if(e.key==='ArrowLeft')  goTo((curIdx-1+LOCATIONS.length)%LOCATIONS.length);
-  if(e.key===' ') { e.preventDefault(); toggleAuto(); }
-});
+  // ── CURSOR TRAIL ──────────────────────────────────────────
+  const TRAIL = 14;
+  const dots = Array.from({length:TRAIL}, (_, i) => {
+    const d = document.createElement('div');
+    d.className = 'trail-dot';
+    const scale = 1 - i/TRAIL;
+    d.style.cssText = `width:${6*scale}px;height:${6*scale}px;opacity:${0.65*scale}`;
+    document.body.appendChild(d);
+    return d;
+  });
+  const trail = Array(TRAIL).fill({x:0,y:0});
+  let mx=0, my=0;
+  window.addEventListener('mousemove', e => { mx=e.clientX; my=e.clientY; });
+  (function animTrail() {
+    trail.unshift({x:mx,y:my}); trail.pop();
+    dots.forEach((d,i) => {
+      d.style.left = trail[i].x + 'px';
+      d.style.top  = trail[i].y + 'px';
+    });
+    requestAnimationFrame(animTrail);
+  })();
 
-/* ══ START ══ */
-function startVR(){
-  document.getElementById('intro').style.opacity='0';
-  setTimeout(()=>{ document.getElementById('intro').style.display='none'; },1000);
-  loadTexture(0, ()=>{ updateHUD(0); animate(); });
-}
+  // Scroll fade-in
+  const obs = new IntersectionObserver(
+    entries => entries.forEach(e => { if(e.isIntersecting) e.target.classList.add('show'); }),
+    { threshold: 0.08 }
+  );
+  document.querySelectorAll('.fade').forEach(el => obs.observe(el));
 
-/* 힌트 자동 숨김 */
-setTimeout(()=>{
-  const h=document.getElementById('ctrlHint');
-  if(h) h.style.opacity='0.4';
-},5000);
+  // ── SNAKE (fullpage) ─────────────────────────────────────
+  const SC = document.getElementById('snake-canvas');
+  const SCX = SC.getContext('2d');
+  const CELL = 24;
+  let SCOLS, SROWS;
+  let snake, dir, nextDir, food, snakeScore=0, snakeBest=0, snakeRunning=false, snakeTimer, snakeActive=false;
+
+  function resizeSC() {
+    SC.width = window.innerWidth; SC.height = window.innerHeight;
+    SCOLS = Math.floor(SC.width/CELL); SROWS = Math.floor(SC.height/CELL);
+  }
+
+  function toggleSnake() {
+    snakeActive ? closeSnake() : openSnake();
+  }
+  function openSnake() {
+    snakeActive = true; resizeSC();
+    document.getElementById('snake-dim').style.display = 'block';
+    SC.style.display = 'block';
+    document.getElementById('snake-hud').style.display = 'flex';
+    document.getElementById('snake-start-screen').style.display = 'flex';
+    const fab = document.getElementById('snake-fab');
+    fab.classList.add('playing'); fab.textContent = 'ESC';
+    document.body.style.overflow = 'hidden';
+  }
+  function closeSnake() {
+    clearInterval(snakeTimer); snakeRunning = false; snakeActive = false;
+    ['snake-dim','snake-hud','snake-start-screen'].forEach(id => document.getElementById(id).style.display='none');
+    SC.style.display = 'none';
+    const fab = document.getElementById('snake-fab');
+    fab.classList.remove('playing'); fab.textContent = '🐍';
+    document.body.style.overflow = '';
+  }
+  function startSnake() {
+    document.getElementById('snake-start-screen').style.display = 'none';
+    const cx=Math.floor(SCOLS/2), cy=Math.floor(SROWS/2);
+    snake=[{x:cx,y:cy},{x:cx-1,y:cy},{x:cx-2,y:cy}];
+    dir={x:1,y:0}; nextDir={x:1,y:0};
+    snakeScore=0; document.getElementById('snake-score').textContent=0;
+    spawnFood(); snakeRunning=true;
+    clearInterval(snakeTimer); snakeTimer=setInterval(tickSnake,115);
+  }
+  function spawnFood() {
+    let p; do { p={x:Math.floor(Math.random()*SCOLS),y:Math.floor(Math.random()*SROWS)}; }
+    while(snake.some(s=>s.x===p.x&&s.y===p.y)); food=p;
+  }
+  function drawSnake() {
+    SCX.clearRect(0,0,SC.width,SC.height);
+    // food glow
+    const fx=food.x*CELL+CELL/2, fy=food.y*CELL+CELL/2;
+    const fg=SCX.createRadialGradient(fx,fy,0,fx,fy,CELL*1.2);
+    fg.addColorStop(0,'rgba(6,214,160,.55)'); fg.addColorStop(1,'rgba(6,214,160,0)');
+    SCX.fillStyle=fg; SCX.beginPath(); SCX.arc(fx,fy,CELL*1.2,0,Math.PI*2); SCX.fill();
+    SCX.fillStyle='#06d6a0'; SCX.beginPath(); SCX.arc(fx,fy,CELL/2-3,0,Math.PI*2); SCX.fill();
+    // snake body
+    snake.forEach((s,i)=>{
+      const x=s.x*CELL+1, y=s.y*CELL+1, sz=CELL-2;
+      if(i===0){
+        SCX.shadowColor='rgba(14,169,104,.7)'; SCX.shadowBlur=14;
+        SCX.fillStyle='rgba(255,255,255,.95)';
+      } else {
+        SCX.shadowBlur=0; SCX.shadowColor='transparent';
+        SCX.fillStyle=`rgba(14,169,104,${Math.max(.35,.82-i*.008)})`;
+      }
+      SCX.beginPath(); SCX.roundRect(x,y,sz,sz,5); SCX.fill();
+    });
+    SCX.shadowBlur=0; SCX.shadowColor='transparent';
+  }
+  function tickSnake() {
+    if(!snakeRunning) return;
+    dir=nextDir;
+    const head={x:snake[0].x+dir.x, y:snake[0].y+dir.y};
+    if(head.x<0||head.x>=SCOLS||head.y<0||head.y>=SROWS||snake.some(s=>s.x===head.x&&s.y===head.y)){
+      clearInterval(snakeTimer); snakeRunning=false;
+      if(snakeScore>snakeBest){snakeBest=snakeScore; document.getElementById('snake-best').textContent=snakeBest;}
+      const ss=document.getElementById('snake-start-screen');
+      ss.innerHTML=`<h3>게임 오버</h3><div class="sgo-score">${snakeScore}점</div><p>최고 기록: ${snakeBest}점</p><button class="game-go-btn" onclick="startSnake()">다시하기</button>`;
+      ss.style.display='flex'; return;
+    }
+    snake.unshift(head);
+    if(head.x===food.x&&head.y===food.y){snakeScore++; document.getElementById('snake-score').textContent=snakeScore; spawnFood();} else snake.pop();
+    drawSnake();
+  }
+  document.addEventListener('keydown',e=>{
+    if(e.key==='Escape'){ if(snakeActive) closeSnake(); return; }
+    if(!snakeRunning) return;
+    const map={ArrowUp:{x:0,y:-1},ArrowDown:{x:0,y:1},ArrowLeft:{x:-1,y:0},ArrowRight:{x:1,y:0}};
+    if(map[e.key]){ e.preventDefault(); const d=map[e.key]; if(d.x!==-dir.x||d.y!==-dir.y) nextDir=d; }
+  });
+  window.addEventListener('resize',()=>{ if(snakeActive) resizeSC(); });
+
+  // Particle network
+  const canvas = document.getElementById('particle-canvas');
+  const ctx = canvas.getContext('2d');
+  const ACCENT = '14, 169, 104';
+  const COUNT = 65;
+  const MAX_DIST = 140;
+  let mouse = { x: null, y: null };
+  let particles = [];
+
+  function resize() {
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+  }
+  resize();
+  window.addEventListener('resize', () => { resize(); init(); });
+  window.addEventListener('mousemove', e => { mouse.x = e.clientX; mouse.y = e.clientY; });
+
+  function init() {
+    particles = Array.from({ length: COUNT }, () => ({
+      x: Math.random() * canvas.width,
+      y: Math.random() * canvas.height,
+      vx: (Math.random() - 0.5) * 0.45,
+      vy: (Math.random() - 0.5) * 0.45,
+      r: Math.random() * 2 + 1.5
+    }));
+  }
+  init();
+
+  function tick() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    for (let i = 0; i < particles.length; i++) {
+      const p = particles[i];
+
+      // Mouse pull
+      if (mouse.x !== null) {
+        const dx = mouse.x - p.x, dy = mouse.y - p.y;
+        const d = Math.sqrt(dx*dx + dy*dy);
+        if (d < 200) { p.vx += dx/d * 0.025; p.vy += dy/d * 0.025; }
+      }
+
+      // Speed cap
+      const spd = Math.sqrt(p.vx*p.vx + p.vy*p.vy);
+      if (spd > 1.4) { p.vx *= 0.92; p.vy *= 0.92; }
+
+      p.x += p.vx; p.y += p.vy;
+      if (p.x < 0 || p.x > canvas.width)  p.vx *= -1;
+      if (p.y < 0 || p.y > canvas.height) p.vy *= -1;
+
+      // Dot
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+      ctx.fillStyle = `rgba(${ACCENT}, 0.45)`;
+      ctx.fill();
+
+      // Lines
+      for (let j = i + 1; j < particles.length; j++) {
+        const q = particles[j];
+        const dx = p.x - q.x, dy = p.y - q.y;
+        const d = Math.sqrt(dx*dx + dy*dy);
+        if (d < MAX_DIST) {
+          ctx.beginPath();
+          ctx.moveTo(p.x, p.y);
+          ctx.lineTo(q.x, q.y);
+          ctx.strokeStyle = `rgba(${ACCENT}, ${(1 - d/MAX_DIST) * 0.2})`;
+          ctx.lineWidth = 1;
+          ctx.stroke();
+        }
+      }
+    }
+    requestAnimationFrame(tick);
+  }
+  tick();
 </script>
+
 </body>
 </html>
